@@ -3,31 +3,167 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MRBrowser</title>
+<title>MR Browser — WebKit6 bilan tezkor brauzer</title>
 <style>
-body{margin:0;min-height:100vh;font:16px system-ui,sans-serif;background:#0b0d10;color:#e8eef7;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{max-width:560px;width:100%}
-h1{margin:0 0 20px}
-p{margin:18px 0 6px;color:#8b9bb0}
-code{display:block;background:#14181f;border:1px solid #243041;border-radius:10px;padding:12px;font:13px monospace;color:#c6e2ff;overflow-x:auto;white-space:pre}
-a{color:#6db3f2}
-code{scrollbar-width:thin;scrollbar-color:#2f3e54 transparent}
-code::-webkit-scrollbar{height:8px}
-code::-webkit-scrollbar-track{background:transparent}
-code::-webkit-scrollbar-thumb{background:#2f3e54;border-radius:8px}
-code::-webkit-scrollbar-thumb:hover{background:#3d5070}
-code::-webkit-scrollbar-button{display:none}
+:root {
+  --bg: #090a0f;
+  --card: #121520;
+  --card-border: #22273d;
+  --text: #e2e8f0;
+  --text-muted: #7e8ca8;
+  --acc: #7aa2f7;
+  --acc-glow: rgba(122, 162, 247, 0.25);
+  --code-bg: #181d2c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+.card {
+  max-width: 640px;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 36px 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(122, 162, 247, 0.12);
+  border: 1px solid rgba(122, 162, 247, 0.28);
+  color: var(--acc);
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+h1 {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  line-height: 1.15;
+}
+h1 span {
+  background: linear-gradient(135deg, #9fd8ff, #ffffff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+h1 b { color: var(--acc); }
+.desc {
+  color: var(--text-muted);
+  font-size: 15px;
+  margin: 0 0 24px;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.feat {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+.feat b { color: #fff; display: block; margin-bottom: 2px; }
+.step-title {
+  color: #c5d1e8;
+  font-weight: 600;
+  margin: 20px 0 8px;
+  font-size: 14px;
+}
+code {
+  display: block;
+  background: var(--code-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #9fd8ff;
+  overflow-x: auto;
+  white-space: pre;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--card-border);
+  font-size: 13.5px;
+}
+a {
+  color: var(--acc);
+  text-decoration: none;
+  font-weight: 500;
+}
+a:hover { text-decoration: underline; }
+.auth-free {
+  color: #38bdf8;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 540px) {
+  .features { grid-template-columns: 1fr; }
+  .card { padding: 24px 20px; }
+  h1 { font-size: 28px; }
+}
 </style>
 </head>
 <body>
 <div class="card">
-<h1>MRBrowser</h1>
-<p>1. Terminalga qo'ying:</p>
-<code>curl -fsSL https://raw.githubusercontent.com/mrdevs2011/MRbrowser/main/install.sh | bash</code>
-<p>2. Ishga tushiring:</p>
-<code>mrbrowser</code>
-<p>3. "Kirish" tugmasini bosing va login qiling.</p>
-<p><a href="https://github.com/mrdevs2011/MRbrowser">GitHub</a></p>
+  <div class="badge">⚡ WebKit6 & GTK4 Native Engine</div>
+  <h1><span>MR</span><b>Browser</b></h1>
+  <p class="desc">Rust va WebKit6 asosida yaratilgan, yonma-yon gorizontal lentali, ortiqcha yuk va logindan xoli super tezkor brauzer.</p>
+
+  <div class="features">
+    <div class="feat">
+      <b>🚀 Yashin tezligida</b>
+      Nativ mashina kodi, minimal xotira iste'moli.
+    </div>
+    <div class="feat">
+      <b>🛡️ 100% Maxfiy</b>
+      Hech qanday hisob/login talab etilmaydi.
+    </div>
+    <div class="feat">
+      <b>📜 Gorizontal tasma</b>
+      Tablar yonma-yon cheksiz lentada joylashadi.
+    </div>
+    <div class="feat">
+      <b>⌨️ Klaviatura boshqaruvi</b>
+      Ctrl+G, Ctrl+F, Ctrl+O bilan to'liq nazorat.
+    </div>
+  </div>
+
+  <div class="step-title">1. Terminalda bir buyruq bilan o‘rnatish:</div>
+  <code>curl -fsSL https://raw.githubusercontent.com/mrdevs2011/MRbrowser/main/install.sh | bash</code>
+
+  <div class="step-title">2. Ishga tushirish:</div>
+  <code>mrbrowser</code>
+
+  <div class="actions">
+    <span class="auth-free">✓ Autentifikatsiyasiz to‘g‘ridan-to‘g‘ri ishlaydi</span>
+    <a href="https://github.com/mrdevs2011/MRbrowser" target="_blank" rel="noopener">GitHub Repository →</a>
+  </div>
 </div>
 </body>
 </html>

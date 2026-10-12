@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.AppImage
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.cache/
+/tmp/
+mrbrowser-data.json
+mrbrowser-cloud.json

@@ -1,0 +1,63 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+:root{color-scheme:dark;--bg:#000;--card:#000;--ring:rgba(255,255,255,.12);--acc:#9fd8ff}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);user-select:none}
+.p{position:absolute;border-radius:0;background:var(--card);box-shadow:inset 0 0 0 2px var(--ring);transition:box-shadow .15s}
+.rz{position:absolute;width:10px;cursor:col-resize;z-index:5}.rz::after{content:'';position:absolute;left:3px;top:50%;width:4px;height:44px;margin-top:-22px;border-radius:2px;background:var(--acc);opacity:0;transition:opacity .15s}.rz:hover::after,.rz.d::after{opacity:.7}
+.sb{position:absolute;left:0;right:0;bottom:0;height:8px;display:none}.th{position:absolute;top:1px;height:6px;border-radius:3px;background:var(--acc);opacity:.4;transition:opacity .15s}.sb:hover .th,.th.d{opacity:.85}
+.p.a{box-shadow:inset 0 0 0 2px var(--ring-a, var(--acc))}
+body.noborder .p,body.noborder .p.a{box-shadow:none}
+</style></head><body><script>
+const els = [];
+const rzs = [];
+window.__panes = ({ rects, priv, bar, borders }) => {
+  document.body.classList.toggle('priv', !!priv);
+  document.body.classList.toggle('noborder', borders === false);
+  while (els.length < rects.length) { const d = document.createElement('div'); d.className = 'p'; document.body.appendChild(d); els.push(d); }
+  els.forEach((d, i) => {
+    const r = rects[i];
+    if (!r) { d.style.display = 'none'; return; }
+    d.style.display = 'block';
+    d.style.left = r.x + 'px'; d.style.top = r.y + 'px'; d.style.width = r.w + 'px'; d.style.height = r.h + 'px';
+    d.classList.toggle('a', !!r.a);
+    d.style.setProperty('--ring-a', (r.a && r.color) ? r.color : '');
+  });
+  while (rzs.length < rects.length) {
+    const h = document.createElement('div'); h.className = 'rz'; document.body.appendChild(h); rzs.push(h);
+    h.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); h.setPointerCapture(e.pointerId); h.classList.add('d');
+      const sx = e.clientX, w0 = +h.dataset.w, id = +h.dataset.id;
+      const mv = (ev) => { try { window.fapi.resize(id, w0 + ev.clientX - sx); } catch {} };
+      const up = () => { h.classList.remove('d'); h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); };
+      h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up);
+    });
+    h.addEventListener('dblclick', () => { try { window.fapi.reset(); } catch {} });
+  }
+  rzs.forEach((h, i) => {
+    const r = rects[i];
+    if (!r) { h.style.display = 'none'; return; }
+    h.style.display = 'block';
+    h.style.left = (r.x + r.w) + 'px'; h.style.top = r.y + 'px'; h.style.height = r.h + 'px';
+    h.dataset.id = r.id; h.dataset.w = r.w;
+  });
+  if (bar) { sb.style.display = 'block'; th.style.left = bar.x + 'px'; th.style.width = bar.w + 'px'; barW = bar.w; }
+  else sb.style.display = 'none';
+};
+const sb = document.createElement('div'); sb.className = 'sb';
+const th = document.createElement('div'); th.className = 'th';
+sb.appendChild(th); document.body.appendChild(sb);
+let barW = 0;
+const send = (k, v) => { try { window.fapi.scroll(k, v); } catch {} };
+addEventListener('wheel', (e) => send('delta', e.deltaX || e.deltaY), { passive: true });
+sb.addEventListener('pointerdown', (e) => {
+  const span = Math.max(1, innerWidth - barW);
+  if (e.target === sb) { send('ratio', Math.max(0, Math.min(1, (e.clientX - barW / 2) / span))); return; }
+  const sx = e.clientX, x0 = parseFloat(th.style.left) || 0;
+  th.setPointerCapture(e.pointerId); th.classList.add('d');
+  const mv = (ev) => send('ratio', Math.max(0, Math.min(span, x0 + ev.clientX - sx)) / span);
+  const up = () => { th.classList.remove('d'); th.removeEventListener('pointermove', mv); th.removeEventListener('pointerup', up); };
+  th.addEventListener('pointermove', mv); th.addEventListener('pointerup', up);
+});
+</script></body></html>

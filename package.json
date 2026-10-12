@@ -1,0 +1,44 @@
+{
+  "name": "mrbrowser",
+  "version": "2.0.0",
+  "description": "MR Browser \u2014 side-by-side tabs, Brave-style shields, multi-account profiles",
+  "main": "main.js",
+  "author": "MR",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux AppImage"
+  },
+  "build": {
+    "appId": "uz.mr.browser",
+    "productName": "MRBrowser",
+    "electronVersion": "44.4.1",
+    "electronDist": "/usr/lib/electron",
+    "files": [
+      "main.js",
+      "src/**/*",
+      "assets/icon.png",
+      "package.json",
+      "node_modules/@supabase/**/*",
+      "node_modules/tslib/**/*"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Network",
+      "artifactName": "MRBrowser.AppImage",
+      "icon": "assets/icon.png"
+    },
+    "afterPack": "./scripts/afterPack.js",
+    "compression": "store",
+    "electronLanguages": [
+      "en-US"
+    ],
+    "directories": {},
+    "icon": "assets/icon.png"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3"
+  }
+}

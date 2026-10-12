@@ -5,7 +5,6 @@ use gtk::{gdk, gio};
 use gtk4 as gtk;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use std::time::Duration;
 use strip::{SIDE_W, ShellLayout, StripLayout, col_width, gap};
 use webkit6::prelude::*;
 use webkit6::WebView;
@@ -13,85 +12,132 @@ use webkit6::WebView;
 const START_PAGE: &str = r#"<!doctype html><meta charset=utf-8><meta name=color-scheme content=dark>
 <style>
 html,body{height:100%;margin:0}
-body{display:grid;place-items:center;background:#16161e;color:#6b7399;font:15px/1.5 system-ui,sans-serif}
-.w{text-align:center}
-h1{font-weight:600;font-size:60px;letter-spacing:-.03em;margin:0;color:#c0caf5}
-h1 b{color:#7aa2f7}
-p{margin:4px 0 40px}
-.k{display:grid;grid-template-columns:auto auto;gap:12px 32px;text-align:left;justify-content:center}
+body{display:grid;place-items:center;background:#0d0e14;color:#7a83aa;font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{text-align:center;max-width:700px;padding:20px}
+.logo{font-size:64px;font-weight:700;letter-spacing:-.04em;margin:0 0 4px}
+.logo span{background:linear-gradient(135deg,#9fd8ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo b{color:#7aa2f7}
+p.sub{margin:0 0 32px;color:#8a93bb;font-size:16px}
+.k{display:grid;grid-template-columns:auto auto;gap:10px 28px;text-align:left;justify-content:center;background:#141724;border:1px solid #23273a;padding:24px 32px;border-radius:16px}
 .k span:nth-child(odd){text-align:right}
-kbd{font:12px ui-monospace,monospace;background:#1f2335;border:1px solid #2f334d;border-bottom-width:2px;
-    border-radius:6px;padding:2px 7px;color:#a9b1d6;margin-left:3px}
+kbd{font:12px ui-monospace,monospace;background:#1e2338;border:1px solid #333a5c;border-bottom-width:2px;
+    border-radius:6px;padding:2px 7px;color:#c0caf5;margin-left:3px}
+.shields-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(122,162,247,0.12);border:1px solid rgba(122,162,247,0.25);color:#7aa2f7;padding:6px 14px;border-radius:20px;font-size:12px;margin-bottom:20px}
 </style>
-<div class=w><h1>MR Browser<b>.</b></h1><p>WebKit6 bilan tezkor yonma-yon brauzer</p><div class=k>
-<span><kbd>Ctrl</kbd><kbd>G</kbd></span><span>go to address</span>
-<span><kbd>Ctrl</kbd><kbd>Enter</kbd></span><span>edit current URL</span>
-<span><kbd>Ctrl</kbd><kbd>T</kbd></span><span>new tab</span>
-<span><kbd>Ctrl</kbd><kbd>F</kbd></span><span>full / half width</span>
-<span><kbd>Ctrl</kbd><kbd>H</kbd> <kbd>L</kbd></span><span>focus left / right</span>
-<span><kbd>Ctrl</kbd><kbd>O</kbd></span><span>overview</span>
-<span><kbd>Ctrl</kbd><kbd>B</kbd></span><span>sidebar</span>
-</div></div>"#;
+<div class=w>
+  <div class=shields-badge>🛡️ MR Shields Faol · WebKit6 Engine</div>
+  <div class=logo><span>MR</span><b>Browser</b></div>
+  <p class=sub>Tezkor, maxfiy va yonma-yon gorizontal tasma bilan boshqariluvchi brauzer</p>
+  <div class=k>
+    <span><kbd>Ctrl</kbd><kbd>G</kbd> / <kbd>L</kbd></span><span>Manzil / qidiruvga o‘tish</span>
+    <span><kbd>Ctrl</kbd><kbd>Enter</kbd></span><span>Joriy URL manzilni tahrirlash</span>
+    <span><kbd>Ctrl</kbd><kbd>T</kbd></span><span>Yangi tab ochish</span>
+    <span><kbd>Ctrl</kbd><kbd>W</kbd></span><span>Tabni yopish</span>
+    <span><kbd>Ctrl</kbd><kbd>F</kbd></span><span>To‘liq / Yarim ekran kengligi</span>
+    <span><kbd>Ctrl</kbd><kbd>H</kbd> <kbd>L</kbd></span><span>Chap / O‘ng tabga fokus</span>
+    <span><kbd>Ctrl</kbd><kbd>O</kbd></span><span>Umumiy ko‘rinish (Overview)</span>
+    <span><kbd>Ctrl</kbd><kbd>B</kbd></span><span>Yon panelni yashirish / ko‘rsatish</span>
+  </div>
+</div>"#;
 
 const CSS: &str = "
-window { background: #0f1016; border-radius: 0; box-shadow: none; }
+window { background: #0c0d12; border-radius: 0; box-shadow: none; }
 label { color: #a9b1d6; }
 
+/* ---- top bar ---- */
+.top-bar {
+    background: #12141c;
+    border-bottom: 1px solid #202434;
+    padding: 6px 12px;
+}
+.omnibox {
+    background: #181c28;
+    color: #e0e6fc;
+    border: 1px solid #282f46;
+    border-radius: 10px;
+    padding: 4px 12px;
+    font-size: 13.5px;
+}
+.omnibox:focus {
+    border-color: #7aa2f7;
+    background: #1d2232;
+    box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
+}
+
+/* ---- action buttons ---- */
+button.nav-btn {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px;
+    border-radius: 8px;
+    color: #8c97be;
+}
+button.nav-btn:hover {
+    background: #1e2336;
+    color: #c0caf5;
+}
+button.nav-btn.active {
+    background: rgba(122, 162, 247, 0.18);
+    color: #7aa2f7;
+}
+
 /* ---- tabs ---- */
-.tab { border-radius: 12px; border: 2px solid #1a1b26; }
-.tab.focused { border-color: #7aa2f7; }
+.tab { border-radius: 12px; border: 2px solid #1a1e2d; }
+.tab.focused { border-color: #7aa2f7; box-shadow: 0 0 16px rgba(122, 162, 247, 0.25); }
 
 /* ---- sidebar ---- */
-.brand { font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: #c0caf5; }
+.brand { font-weight: 700; font-size: 18px; letter-spacing: -0.02em; color: #c0caf5; }
 .brand-dot { color: #7aa2f7; }
 button.flat-icon { background: transparent; border: none; box-shadow: none; min-width: 28px; min-height: 28px;
                    padding: 0; border-radius: 8px; color: #7982a9; }
 button.flat-icon:hover { background: #1f2335; color: #c0caf5; }
-button.pill { background: #1a1b26; border: 1px solid #272a40; border-radius: 10px; padding: 8px 12px;
+button.pill { background: #181c28; border: 1px solid #282f46; border-radius: 10px; padding: 8px 12px;
               box-shadow: none; color: #a9b1d6; }
 button.pill:hover { background: #1f2335; border-color: #3b4261; }
 button.pill label { color: #c0caf5; }
 .tablist, .tablist row { background: transparent; }
 .tablist row { padding: 0; margin: 1px 0; border-radius: 10px; }
-.tablist row:hover { background: #151620; }
-.tablist row:selected { background: #24283b; }
+.tablist row:hover { background: #151824; }
+.tablist row:selected { background: #22273d; }
 .tabrow { padding: 8px 8px 8px 10px; }
 .tabrow label { color: #8089b3; font-size: 13px; }
-row:selected .tabrow label { color: #c0caf5; }
+row:selected .tabrow label { color: #c0caf5; font-weight: 600; }
 .tabrow image { color: #7982a9; }
 .tab-close { opacity: 0; min-width: 22px; min-height: 22px; padding: 0; border-radius: 6px;
              background: transparent; border: none; box-shadow: none; color: #7982a9; transition: opacity 120ms; }
 .tab-close:hover { background: #3b4261; color: #c0caf5; }
 row:hover .tab-close, row:selected .tab-close { opacity: 1; }
-.hint { color: #3f4561; font-size: 11px; }
+.hint { color: #4b5275; font-size: 11px; }
 
-.fav, .tabrow label.fav, row:selected .tabrow label.fav { border-radius: 5px; font-size: 10px; font-weight: 700; color: #0f1016; }
+.fav, .tabrow label.fav, row:selected .tabrow label.fav { border-radius: 5px; font-size: 10px; font-weight: 700; color: #0c0d12; }
 .fav-0 { background: #7aa2f7; } .fav-1 { background: #bb9af7; } .fav-2 { background: #9ece6a; }
 .fav-3 { background: #e0af68; } .fav-4 { background: #f7768e; } .fav-5 { background: #7dcfff; }
 .fav-6 { background: #ff9e64; } .fav-7 { background: #73daca; }
 
 /* ---- load progress ---- */
-progressbar.load-bar { min-height: 3px; margin: 0 8px; }
+progressbar.load-bar { min-height: 3px; }
 progressbar.load-bar trough { min-height: 3px; background: transparent; border: none; }
 progressbar.load-bar progress { min-height: 3px; background: #7aa2f7; border-radius: 3px;
-                                box-shadow: 0 0 10px rgba(122,162,247,0.7); }
+                                box-shadow: 0 0 10px rgba(122,162,247,0.8); }
 
 /* ---- address palette ---- */
-.palette { background: #1a1b26; border-radius: 16px; border: 1px solid #2f334d; padding: 16px 20px 12px;
-           box-shadow: 0 24px 64px rgba(0,0,0,0.55); min-width: 620px; }
-.palette image { color: #7982a9; }
+.palette { background: #181c28; border-radius: 16px; border: 1px solid #2e3650; padding: 16px 20px 12px;
+           box-shadow: 0 24px 64px rgba(0,0,0,0.65); min-width: 620px; }
+.palette image { color: #7aa2f7; }
 entry.palette-entry, entry.palette-entry:focus-within { background: none; border: none; box-shadow: none; outline: none;
     padding: 0; min-height: 0; font-size: 19px; color: #c0caf5; }
-.palette-hint { color: #565f89; font-size: 12px; margin-top: 8px; }
+.palette-hint { color: #626d97; font-size: 12px; margin-top: 8px; }
 
-/* ---- overview (the live strip, zoomed out) ---- */
+/* ---- overview ---- */
 .zoomed .tab { opacity: 0.88; border-radius: 28px; }
 .zoomed .tab.focused { opacity: 1; outline: 7px solid #7aa2f7; outline-offset: -5px; }
-.ov-hint { background: #1a1b26; color: #8089b3; border: 1px solid #2f334d; border-radius: 10px;
-           padding: 8px 16px; font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.ov-hint { background: #181c28; color: #9da6ce; border: 1px solid #2e3650; border-radius: 10px;
+           padding: 8px 16px; font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
 ";
 
-/// How far the strip zooms out in overview (niri uses a similar factor).
 const OV_ZOOM: f64 = 0.4;
 
 struct Tab {
@@ -107,15 +153,13 @@ struct App {
     layout: StripLayout,
     list: gtk::ListBox,
     pill_label: gtk::Label,
+    top_omnibox: gtk::Entry,
     load_bar: gtk::ProgressBar,
     palette: gtk::Box,
     entry: gtk::Entry,
     ov_hint: gtk::Label,
-    /// Overview is active: the strip is zoomed out and tabs ignore the pointer.
     ov: Cell<bool>,
-    /// Tab that was focused when overview opened; Esc returns here.
     ov_return: Cell<usize>,
-    /// Scroll position before the overview, restored when zooming back in.
     ov_saved: Cell<f64>,
     target_zoom: Cell<f64>,
     tabs: RefCell<Vec<Tab>>,
@@ -124,12 +168,14 @@ struct App {
     animating: Cell<bool>,
     side_open: Cell<bool>,
     side_gen: Cell<u32>,
-    /// A just-created tab that has never navigated; Esc discards it.
     fresh: RefCell<Option<WebView>>,
 }
 
 fn to_uri(input: &str) -> String {
     let s = input.trim();
+    if s.is_empty() || s == "about:start" {
+        return "about:start".into();
+    }
     if s.contains("://") || s.starts_with("about:") || s.starts_with("file:") {
         return s.into();
     }
@@ -161,16 +207,12 @@ impl App {
         self.ov.get()
     }
 
-    // ---- strip scrolling -------------------------------------------------
-
-    /// Normal mode: scroll the minimum needed to show the focused column.
-    /// Overview: center the focused column in the zoomed-out strip.
     fn reveal_focus(self: &Rc<Self>) {
         let vw = self.strip.width() as f64;
         if vw <= 0.0 {
             return;
         }
-        let visible = vw / self.target_zoom.get(); // strip width that fits on screen
+        let visible = vw / self.target_zoom.get();
         let g = gap(self.target_zoom.get());
         let tabs = self.tabs.borrow();
         let mut x = 0.0;
@@ -187,7 +229,7 @@ impl App {
         let max = (total - visible).max(0.0);
         let t = if self.ov.get() {
             if total <= visible {
-                -(visible - total) / 2.0 // everything fits: center it all
+                -(visible - total) / 2.0
             } else {
                 ((l + r) / 2.0 - visible / 2.0).clamp(0.0, max)
             }
@@ -205,7 +247,6 @@ impl App {
         self.animate();
     }
 
-    /// Ease both the scroll offset and the zoom toward their targets.
     fn animate(self: &Rc<Self>) {
         if self.animating.get() {
             return;
@@ -227,9 +268,6 @@ impl App {
             let w = (strip.width() as f64).max(1.0);
             let (oc, ot) = (app.layout.offset(), app.target.get());
             let (zc, zt) = (app.layout.zoom(), app.target_zoom.get());
-            // Animate the camera *center* (the strip point at screen center), not the
-            // left edge: then zooming pivots on the middle of the screen instead of
-            // visibly shrinking toward the left and sliding into place.
             let (cc, ct) = (oc + w / (2.0 * zc), ot + w / (2.0 * zt));
             let mut cn = cc + (ct - cc) * k;
             let mut znext = zc + (zt - zc) * k;
@@ -253,221 +291,89 @@ impl App {
         });
     }
 
-    // ---- tabs ------------------------------------------------------------
-
-    fn new_tab(self: &Rc<Self>) {
-        self.exit_overview();
-        let view = WebView::new();
-        view.load_html(START_PAGE, None);
-        *self.fresh.borrow_mut() = Some(view.clone());
-        self.add_view(view);
-        self.show_palette();
-    }
-
-    fn add_view(self: &Rc<Self>, view: WebView) {
-        view.add_css_class("tab");
-        view.set_overflow(gtk::Overflow::Hidden);
-        view.set_can_target(!self.ov.get());
-        let idx = if self.tabs.borrow().is_empty() { 0 } else { self.focus.get() + 1 };
-        {
-            let tabs = self.tabs.borrow();
-            match idx {
-                0 => self.strip.prepend(&view),
-                _ => self.strip.insert_child_after(&view, Some(&tabs[idx - 1].view)),
+    fn update_pill(self: &Rc<Self>) {
+        let text = self.focused_view().and_then(|v| v.uri()).map(|u| {
+            if u == "about:start" {
+                "Search or enter address".to_string()
+            } else {
+                host_of(&u).unwrap_or(u.to_string())
             }
-        }
-        self.tabs.borrow_mut().insert(idx, Tab { view: view.clone() });
-
-        let app = self.clone();
-        view.connect_title_notify(move |_| app.refresh_sidebar());
-        let app = self.clone();
-        view.connect_uri_notify(move |_| app.refresh_sidebar());
-        let app = self.clone();
-        view.connect_favicon_notify(move |_| app.refresh_sidebar());
-        let app = self.clone();
-        view.connect_is_loading_notify(move |_| {
-            app.refresh_sidebar();
-            app.update_load_bar();
-        });
-        let app = self.clone();
-        view.connect_estimated_load_progress_notify(move |_| app.update_load_bar());
-        let app = self.clone();
-        view.connect_create(move |v, _| {
-            let nv = WebView::builder().related_view(v).build();
-            app.add_view(nv.clone());
-            Some(nv.upcast())
-        });
-        let app = self.clone();
-        view.connect_close(move |v| app.close_view(v));
-
-        self.focus_tab(idx);
-    }
-
-    fn close_view(self: &Rc<Self>, view: &WebView) {
-        let Some(idx) = self.tabs.borrow().iter().position(|t| &t.view == view) else { return };
-        self.strip.remove(view);
-        self.tabs.borrow_mut().remove(idx);
-        if self.fresh.borrow().as_ref() == Some(view) {
-            *self.fresh.borrow_mut() = None;
-        }
-        self.focus.set(usize::MAX);
-        let len = self.tabs.borrow().len();
-        if len == 0 {
-            self.new_tab();
-        } else {
-            self.focus_tab(idx.saturating_sub(1).min(len - 1));
+        }).unwrap_or_else(|| "Search or enter address".into());
+        self.pill_label.set_text(&text);
+        
+        let full_uri = self.focused_view().and_then(|v| v.uri()).map(|u| {
+            if u == "about:start" { String::new() } else { u.to_string() }
+        }).unwrap_or_default();
+        if !self.top_omnibox.has_focus() {
+            self.top_omnibox.set_text(&full_uri);
         }
     }
 
-    fn focus_tab(self: &Rc<Self>, idx: usize) {
-        if idx >= self.tabs.borrow().len() {
+    fn focus_tab(self: &Rc<Self>, i: usize) {
+        let tabs = self.tabs.borrow();
+        if i >= tabs.len() || i == self.focus.get() {
             return;
         }
-        self.focus.set(idx);
-        for (i, t) in self.tabs.borrow().iter().enumerate() {
-            if i == idx {
-                t.view.add_css_class("focused");
-            } else {
-                t.view.remove_css_class("focused");
-            }
+        if let Some(prev) = tabs.get(self.focus.get()) {
+            prev.view.remove_css_class("focused");
         }
-        if !self.tabs.borrow()[idx].view.is_loading() {
-            self.load_bar.set_visible(false);
-        }
-        self.update_load_bar();
+        self.focus.set(i);
+        let curr = &tabs[i];
+        curr.view.add_css_class("focused");
+        curr.view.grab_focus();
+        drop(tabs);
+
+        self.list.select_row(self.list.row_at_index(i as i32).as_ref());
+        self.update_pill();
         self.reveal_focus();
-        self.refresh_sidebar();
-        if !self.palette_open() && !self.ov.get() {
-            self.tabs.borrow()[idx].view.grab_focus();
-        }
     }
 
-    fn move_tab(self: &Rc<Self>, dir: isize) {
-        let i = self.focus.get();
-        let Some(j) = i.checked_add_signed(dir).filter(|&j| j < self.tabs.borrow().len()) else { return };
-        self.tabs.borrow_mut().swap(i, j);
+    fn set_tab_full(self: &Rc<Self>, i: usize, full: bool) {
         let tabs = self.tabs.borrow();
-        let mut prev: Option<&WebView> = None;
-        for t in tabs.iter() {
-            self.strip.reorder_child_after(&t.view, prev);
-            prev = Some(&t.view);
+        let Some(t) = tabs.get(i) else { return };
+        if full {
+            t.view.add_css_class("full");
+        } else {
+            t.view.remove_css_class("full");
         }
         drop(tabs);
-        self.focus.set(j);
-        self.strip.queue_allocate();
-        self.reveal_focus();
-        self.refresh_sidebar();
-    }
-
-    fn toggle_full(self: &Rc<Self>) {
-        let Some(v) = self.focused_view() else { return };
-        if v.has_css_class("full") {
-            v.remove_css_class("full");
-        } else {
-            v.add_css_class("full");
-        }
         self.strip.queue_allocate();
         self.reveal_focus();
     }
 
-    // ---- sidebar ---------------------------------------------------------
-
-    fn tab_label(t: &Tab) -> String {
-        match t.view.title().filter(|s| !s.is_empty()) {
-            Some(s) => s.to_string(),
-            None => t
-                .view
-                .uri()
-                .filter(|u| !u.starts_with("about:"))
-                .map_or("New tab".into(), |u| host_of(&u).unwrap_or(u.to_string())),
-        }
-    }
-
-    fn tab_icon(t: &Tab, size: i32) -> gtk::Widget {
-        if t.view.is_loading() {
-            let s = gtk::Spinner::new();
-            s.set_size_request(size, size);
-            s.start();
-            return s.upcast();
-        }
-        if let Some(f) = t.view.favicon() {
-            let img = gtk::Image::from_paintable(Some(&f));
-            img.set_pixel_size(size);
-            return img.upcast();
-        }
-        // No favicon yet: a colored letter badge, stable per site.
-        let label = Self::tab_label(t);
-        let letter = label.chars().find(|c| c.is_alphanumeric()).unwrap_or('·');
-        let seed = label.bytes().fold(0u32, |a, b| a.wrapping_mul(31).wrapping_add(b as u32));
-        let badge = gtk::Label::new(Some(&letter.to_uppercase().to_string()));
-        badge.add_css_class("fav");
-        badge.add_css_class(&format!("fav-{}", seed % 8));
-        badge.set_size_request(size, size);
-        badge.set_valign(gtk::Align::Center);
-        badge.upcast()
-    }
-
-    fn refresh_sidebar(self: &Rc<Self>) {
-        while let Some(r) = self.list.row_at_index(0) {
-            self.list.remove(&r);
-        }
-        for t in self.tabs.borrow().iter() {
-            let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-            row.add_css_class("tabrow");
-            row.append(&Self::tab_icon(t, 16));
-            let label = gtk::Label::new(Some(&Self::tab_label(t)));
-            label.set_xalign(0.0);
-            label.set_hexpand(true);
-            label.set_width_chars(1);
-            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            row.append(&label);
-            let close = gtk::Button::from_icon_name("window-close-symbolic");
-            close.add_css_class("tab-close");
-            close.set_valign(gtk::Align::Center);
-            let (app, v) = (self.clone(), t.view.clone());
-            close.connect_clicked(move |_| app.close_view(&v));
-            row.append(&close);
-            self.list.append(&row);
-        }
-        if let Some(row) = self.list.row_at_index(self.focus.get() as i32) {
-            self.list.select_row(Some(&row));
-        }
-        let text = match self.focused_view().and_then(|v| v.uri()) {
-            Some(u) if !u.starts_with("about:") => host_of(&u).unwrap_or(u.to_string()),
-            _ => "Search or enter address".into(),
-        };
-        self.pill_label.set_text(&text);
+    fn toggle_tab_full(self: &Rc<Self>) {
+        let tabs = self.tabs.borrow();
+        let Some(t) = tabs.get(self.focus.get()) else { return };
+        let was_full = t.view.has_css_class("full");
+        drop(tabs);
+        self.set_tab_full(self.focus.get(), !was_full);
     }
 
     fn toggle_sidebar(self: &Rc<Self>) {
-        self.set_sidebar(!self.side_open.get());
-    }
-
-    fn set_sidebar(self: &Rc<Self>, open: bool) {
+        let open = !self.side_open.get();
         self.side_open.set(open);
-        let epoch = self.side_gen.get().wrapping_add(1);
-        self.side_gen.set(epoch);
-        if open {
-            self.side.set_visible(true);
-        }
-        let start = self.shell_layout.side();
-        let end = if open { SIDE_W as f64 } else { 0.0 };
+        self.side.set_visible(true);
+        let side_id = self.side_gen.get().wrapping_add(1);
+        self.side_gen.set(side_id);
+
         let app = self.clone();
-        let t0 = Cell::new(None::<i64>);
+        let (_from, to) = (self.shell_layout.side(), if open { SIDE_W as f64 } else { 0.0 });
+        let last = Cell::new(None::<i64>);
         self.shell.add_tick_callback(move |shell, clock| {
-            if app.side_gen.get() != epoch {
-                return glib::ControlFlow::Break; // superseded by a newer toggle
+            if app.side_gen.get() != side_id {
+                return glib::ControlFlow::Break;
             }
             let now = clock.frame_time();
-            let begin = t0.get().unwrap_or_else(|| {
-                t0.set(Some(now));
-                now
-            });
-            let p = ((now - begin) as f64 / 200_000.0).min(1.0);
-            let e = 1.0 - (1.0 - p).powi(3);
-            app.shell_layout.set_side(start + (end - start) * e);
+            let dt = last.replace(Some(now)).map_or(1.0 / 60.0, |l| (now - l) as f64 / 1e6);
+            let k = 1.0 - (-dt / 0.06).exp();
+            let curr = app.shell_layout.side();
+            let mut next = curr + (to - curr) * k;
+            if (to - next).abs() < 0.5 {
+                next = to;
+            }
+            app.shell_layout.set_side(next);
             shell.queue_allocate();
-            if p >= 1.0 {
+            if next == to {
                 if !open {
                     app.side.set_visible(false);
                 }
@@ -476,266 +382,263 @@ impl App {
                 glib::ControlFlow::Continue
             }
         });
-        if let Some(v) = self.focused_view() {
-            v.grab_focus();
-        }
-    }
-
-    // ---- load feedback ---------------------------------------------------
-
-    /// Thin bar along the top of the window showing the focused tab's progress.
-    fn update_load_bar(self: &Rc<Self>) {
-        let bar = &self.load_bar;
-        let Some(v) = self.focused_view() else {
-            bar.set_visible(false);
-            return;
-        };
-        if v.is_loading() {
-            bar.set_visible(true);
-            // Never show an empty bar: it should read as "started" right away.
-            bar.set_fraction(v.estimated_load_progress().max(0.08));
-        } else if gtk::prelude::WidgetExt::is_visible(bar) {
-            bar.set_fraction(1.0);
-            let app = self.clone();
-            glib::timeout_add_local_once(Duration::from_millis(250), move || {
-                if !app.focused_view().is_some_and(|v| v.is_loading()) {
-                    app.load_bar.set_visible(false);
-                }
-            });
-        }
-    }
-
-    // ---- address palette -------------------------------------------------
-
-    fn show_palette(&self) {
-        let uri = self.focused_view().and_then(|v| v.uri()).filter(|u| !u.starts_with("about:"));
-        self.entry.set_text(uri.as_deref().unwrap_or(""));
-        self.palette.set_visible(true);
-        self.entry.grab_focus();
-        self.entry.select_region(0, -1);
-    }
-
-    fn hide_palette(&self) {
-        self.palette.set_visible(false);
-        if let Some(v) = self.focused_view() {
-            v.grab_focus();
-        }
-    }
-
-    /// Esc on the palette: close it, and also drop a tab that was never used.
-    fn cancel_palette(self: &Rc<Self>) {
-        let view = self.focused_view();
-        let fresh = self.fresh.borrow().clone();
-        self.hide_palette();
-        if let (Some(v), Some(f)) = (view, fresh) {
-            if v == f && self.tabs.borrow().len() > 1 {
-                self.close_view(&v);
-            }
-        }
-    }
-
-    fn navigate(self: &Rc<Self>, text: &str) {
-        if !text.trim().is_empty() {
-            if let Some(v) = self.focused_view() {
-                let uri = to_uri(text);
-                self.pill_label.set_text(&host_of(&uri).unwrap_or(uri.clone()));
-                v.load_uri(&uri);
-                *self.fresh.borrow_mut() = None;
-            }
-        }
-        self.hide_palette();
-    }
-
-    // ---- overview (niri-style: the live strip, zoomed out) ----------------
-
-    fn toggle_overview(self: &Rc<Self>) {
-        if self.ov.get() {
-            self.exit_overview(); // Ctrl+O again opens whatever is focused now
-        } else {
-            self.enter_overview();
-        }
     }
 
     fn enter_overview(self: &Rc<Self>) {
-        if self.ov.get() || self.tabs.borrow().is_empty() {
+        if self.ov.get() {
             return;
         }
-        self.palette.set_visible(false);
         self.ov.set(true);
         self.ov_return.set(self.focus.get());
         self.ov_saved.set(self.target.get());
+        self.target_zoom.set(OV_ZOOM);
         self.strip.add_css_class("zoomed");
         self.ov_hint.set_visible(true);
-        for t in self.tabs.borrow().iter() {
-            t.view.set_can_target(false); // clicks pick a tab, they don't reach the page
-        }
-        self.target_zoom.set(OV_ZOOM);
+        self.strip.set_can_target(true);
         self.reveal_focus();
     }
 
-    /// Zoom back in on whichever tab is focused now.
-    fn exit_overview(self: &Rc<Self>) {
+    fn exit_overview(self: &Rc<Self>, commit: bool) {
         if !self.ov.get() {
             return;
         }
         self.ov.set(false);
+        self.target_zoom.set(1.0);
         self.strip.remove_css_class("zoomed");
         self.ov_hint.set_visible(false);
-        for t in self.tabs.borrow().iter() {
-            t.view.set_can_target(true);
+        self.strip.set_can_target(true);
+        if !commit {
+            self.focus_tab(self.ov_return.get());
+            self.target.set(self.ov_saved.get());
+            self.animate();
+        } else {
+            self.reveal_focus();
         }
-        self.target_zoom.set(1.0);
-        // Start from the pre-overview scroll: if the focus didn't move we land exactly
-        // where we left, otherwise we scroll the minimum to reveal the new tab.
-        self.target.set(self.ov_saved.get());
-        self.reveal_focus();
         if let Some(v) = self.focused_view() {
             v.grab_focus();
         }
     }
 
-    /// Esc: zoom back in on the tab you started from.
-    fn cancel_overview(self: &Rc<Self>) {
-        let back = self.ov_return.get().min(self.tabs.borrow().len().saturating_sub(1));
-        self.focus_tab(back);
-        self.exit_overview();
-    }
-
-    /// Click in overview: the tab under the pointer wins; empty space just exits.
-    fn ov_click(self: &Rc<Self>, x: f64) {
+    fn ov_click(self: &Rc<Self>, click_x: f64) {
         let vw = self.strip.width() as f64;
-        let (z, off) = (self.layout.zoom(), self.layout.offset());
+        let z = self.layout.zoom();
+        let strip_x = self.layout.offset() + click_x / z;
+        let tabs = self.tabs.borrow();
         let g = gap(z);
-        let mut hit = None;
-        let mut cx = 0.0;
-        for (i, t) in self.tabs.borrow().iter().enumerate() {
+        let mut x = 0.0;
+        for (i, t) in tabs.iter().enumerate() {
             let w = col_width(t.view.has_css_class("full"), vw);
-            let left = (cx - off) * z;
-            if x >= left && x <= left + w * z {
-                hit = Some(i);
-                break;
+            if strip_x >= x && strip_x <= x + w {
+                drop(tabs);
+                self.focus_tab(i);
+                self.exit_overview(true);
+                return;
             }
-            cx += w + g;
+            x += w + g;
         }
-        if let Some(i) = hit {
-            self.focus_tab(i);
-        }
-        self.exit_overview();
     }
 
-    /// Keys while zoomed out. Returns true when consumed.
-    fn ov_key(self: &Rc<Self>, k: gdk::Key, m: gdk::ModifierType) -> bool {
-        use gdk::ModifierType as M;
-        let plain = m.is_empty();
-        let f = self.focus.get();
-        if plain || m == M::CONTROL_MASK {
-            match k {
-                gdk::Key::h | gdk::Key::Left => {
-                    self.focus_tab(f.saturating_sub(1));
-                    return true;
-                }
-                gdk::Key::l | gdk::Key::Right => {
-                    self.focus_tab(f + 1);
-                    return true;
-                }
-                _ => {}
-            }
+    fn show_palette(self: &Rc<Self>) {
+        if self.overview_open() {
+            self.exit_overview(false);
         }
-        if plain {
-            match k {
-                gdk::Key::Return | gdk::Key::KP_Enter | gdk::Key::space => self.exit_overview(),
-                gdk::Key::x | gdk::Key::Delete | gdk::Key::BackSpace => {
-                    if let Some(v) = self.focused_view() {
-                        self.close_view(&v);
-                    }
-                }
-                _ => {}
-            }
-        }
-        // Swallow stray typing so it never reaches a page.
-        plain
+        let cur = self.focused_view().and_then(|v| v.uri()).map(|u| {
+            if u == "about:start" { String::new() } else { u.to_string() }
+        }).unwrap_or_default();
+        self.entry.set_text(&cur);
+        self.entry.select_region(0, -1);
+        self.palette.set_visible(true);
+        self.entry.grab_focus();
     }
 
-    // ---- keys ------------------------------------------------------------
+    fn hide_palette(self: &Rc<Self>) {
+        if !self.palette_open() {
+            return;
+        }
+        self.palette.set_visible(false);
+        if let Some(v) = self.focused_view() {
+            v.grab_focus();
+        }
+    }
+
+    fn new_tab(self: &Rc<Self>) {
+        let view = WebView::new();
+        view.add_css_class("tab");
+        view.set_hexpand(false);
+        view.set_vexpand(true);
+
+        if let Some(s) = webkit6::prelude::WebViewExt::settings(&view) {
+            s.set_enable_developer_extras(true);
+            s.set_enable_javascript(true);
+            s.set_enable_page_cache(true);
+            s.set_user_agent_with_application_details(Some("MRBrowser"), Some("2.1"));
+        }
+
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        row.add_css_class("tabrow");
+        let fav = gtk::Label::new(Some("MR"));
+        fav.add_css_class("fav");
+        let cls = format!("fav-{}", (self.tabs.borrow().len()) % 8);
+        fav.add_css_class(&cls);
+        fav.set_width_chars(3);
+
+        let label = gtk::Label::new(Some("Yangi tab"));
+        label.set_hexpand(true);
+        label.set_xalign(0.0);
+        label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+
+        let close = gtk::Button::from_icon_name("window-close-symbolic");
+        close.add_css_class("tab-close");
+        row.append(&fav);
+        row.append(&label);
+        row.append(&close);
+
+        let i = self.tabs.borrow().len();
+        self.strip.append(&view);
+        self.list.append(&row);
+        self.tabs.borrow_mut().push(Tab { view: view.clone() });
+
+        let app = self.clone();
+        let v = view.clone();
+        close.connect_clicked(move |_| {
+            let tabs = app.tabs.borrow();
+            if let Some(idx) = tabs.iter().position(|t| t.view == v) {
+                drop(tabs);
+                app.close_tab(idx);
+            }
+        });
+
+        let app = self.clone();
+        let l = label.clone();
+        let f = fav.clone();
+        view.connect_title_notify(move |v| {
+            let title = v.title().map(|s| s.to_string()).unwrap_or_else(|| "Yangi tab".into());
+            l.set_text(&title);
+            let letter = title.chars().next().unwrap_or('M').to_uppercase().to_string();
+            f.set_text(&letter);
+            app.update_pill();
+        });
+
+        let app = self.clone();
+        view.connect_uri_notify(move |_| {
+            app.update_pill();
+        });
+
+        let app = self.clone();
+        let v = view.clone();
+        view.connect_estimated_load_progress_notify(move |view| {
+            if app.focused_view().as_ref() == Some(&v) {
+                let p = view.estimated_load_progress();
+                app.load_bar.set_fraction(p);
+                app.load_bar.set_visible(p < 1.0);
+            }
+        });
+
+        view.load_html(START_PAGE, Some("about:start"));
+        self.fresh.replace(Some(view));
+        self.focus_tab(i);
+    }
+
+    fn close_tab(self: &Rc<Self>, i: usize) {
+        let mut tabs = self.tabs.borrow_mut();
+        if i >= tabs.len() {
+            return;
+        }
+        let t = tabs.remove(i);
+        self.strip.remove(&t.view);
+        if let Some(row) = self.list.row_at_index(i as i32) {
+            self.list.remove(&row);
+        }
+        let len = tabs.len();
+        drop(tabs);
+
+        if len == 0 {
+            self.new_tab();
+        } else {
+            let next = if self.focus.get() >= len { len - 1 } else { self.focus.get().min(i) };
+            self.focus.set(usize::MAX);
+            self.focus_tab(next);
+        }
+    }
+
+    fn navigate(self: &Rc<Self>, input: &str) {
+        let uri = to_uri(input);
+        if let Some(v) = self.focused_view() {
+            if uri == "about:start" {
+                v.load_html(START_PAGE, Some("about:start"));
+            } else {
+                v.load_uri(&uri);
+            }
+            self.fresh.replace(None);
+        }
+        self.hide_palette();
+    }
 
     fn on_key(self: &Rc<Self>, key: gdk::Key, state: gdk::ModifierType) -> bool {
-        use gdk::ModifierType as M;
-        let m = state & gtk::accelerator_get_default_mod_mask();
-        let k = key.to_lower();
+        let ctrl = state.contains(gdk::ModifierType::CONTROL_MASK);
+        let name = key.name().unwrap_or_default();
 
-        if k == gdk::Key::Escape {
-            if self.palette_open() {
-                self.cancel_palette();
-                return true;
-            }
-            if self.ov.get() {
-                self.cancel_overview();
+        if self.palette_open() {
+            if name == "Escape" {
+                self.hide_palette();
                 return true;
             }
             return false;
         }
-        let global = m == M::CONTROL_MASK && matches!(k, gdk::Key::o | gdk::Key::t | gdk::Key::q);
-        if self.overview_open() && !global && self.ov_key(k, m) {
-            return true;
-        }
-        if m.is_empty() && k == gdk::Key::F11 {
-            self.win.set_fullscreened(!self.win.is_fullscreen());
-            return true;
-        }
-        if m == M::ALT_MASK {
-            let v = self.focused_view();
-            match k {
-                gdk::Key::Left => v.map(|v| v.go_back()),
-                gdk::Key::Right => v.map(|v| v.go_forward()),
-                _ => return false,
-            };
-            return true;
-        }
-        let focus = self.focus.get();
-        if m == M::CONTROL_MASK {
-            match k {
-                gdk::Key::t => self.new_tab(),
-                gdk::Key::f => self.toggle_full(),
-                gdk::Key::h => self.focus_tab(focus.saturating_sub(1)),
-                gdk::Key::l => self.focus_tab(focus + 1),
-                gdk::Key::w => {
-                    if let Some(v) = self.focused_view() {
-                        self.close_view(&v);
-                    }
+
+        if self.overview_open() {
+            match name.as_str() {
+                "Escape" => { self.exit_overview(false); return true; }
+                "Return" => { self.exit_overview(true); return true; }
+                "h" | "Left" => {
+                    let cur = self.focus.get();
+                    if cur > 0 { self.focus_tab(cur - 1); }
+                    return true;
                 }
-                gdk::Key::b => self.toggle_sidebar(),
-                gdk::Key::o => self.toggle_overview(),
-                gdk::Key::g => self.show_palette(),
-                // Edit the focused tab's URL (already open? let the entry handle it).
-                gdk::Key::Return | gdk::Key::KP_Enter => {
-                    if self.palette_open() {
-                        return false;
-                    }
-                    self.show_palette();
+                "l" | "Right" => {
+                    let cur = self.focus.get();
+                    if cur + 1 < self.tabs.borrow().len() { self.focus_tab(cur + 1); }
+                    return true;
                 }
-                gdk::Key::r => {
-                    if let Some(v) = self.focused_view() {
-                        v.reload();
-                    }
-                }
-                gdk::Key::q => self.win.close(),
-                _ => return false,
+                "x" => { self.close_tab(self.focus.get()); return true; }
+                _ => return true,
             }
-            return true;
         }
-        if m == M::CONTROL_MASK | M::SHIFT_MASK {
-            match k {
-                gdk::Key::h => self.move_tab(-1),
-                gdk::Key::l => self.move_tab(1),
-                _ => return false,
+
+        if ctrl {
+            match name.as_str() {
+                "t" => { self.new_tab(); return true; }
+                "w" => { self.close_tab(self.focus.get()); return true; }
+                "g" | "l" => { self.show_palette(); return true; }
+                "b" => { self.toggle_sidebar(); return true; }
+                "f" => { self.toggle_tab_full(); return true; }
+                "o" => { self.enter_overview(); return true; }
+                "h" => {
+                    let cur = self.focus.get();
+                    if cur > 0 { self.focus_tab(cur - 1); }
+                    return true;
+                }
+                "j" | "Tab" => {
+                    let cur = self.focus.get();
+                    let len = self.tabs.borrow().len();
+                    if len > 0 { self.focus_tab((cur + 1) % len); }
+                    return true;
+                }
+                "k" => {
+                    let cur = self.focus.get();
+                    let len = self.tabs.borrow().len();
+                    if len > 0 { self.focus_tab(if cur == 0 { len - 1 } else { cur - 1 }); }
+                    return true;
+                }
+                "Return" => { self.show_palette(); return true; }
+                _ => {}
             }
-            return true;
         }
+
         false
     }
 }
 
-/// Keep logins across restarts: WebKit only writes cookies to disk if told to.
 fn setup_storage() {
     let dir = glib::user_data_dir().join("mrbrowser");
     let _ = std::fs::create_dir_all(&dir);
@@ -762,18 +665,18 @@ fn build(gapp: &gtk::Application) {
 
     // ---- sidebar ----
     let brand = gtk::Label::new(None);
-    brand.set_markup("<span weight='bold' size='large' foreground='#c0caf5'>mrbrowser</span><span weight='bold' size='large' foreground='#7aa2f7'>.</span>");
+    brand.set_markup("<span weight='bold' size='large' foreground='#c0caf5'>MR</span><span weight='bold' size='large' foreground='#7aa2f7'>Browser</span>");
     brand.set_hexpand(true);
     brand.set_xalign(0.0);
     let add = gtk::Button::from_icon_name("list-add-symbolic");
     add.add_css_class("flat-icon");
-    add.set_tooltip_text(Some("New tab  (Ctrl+T)"));
+    add.set_tooltip_text(Some("Yangi tab (Ctrl+T)"));
     let head = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     head.set_margin_start(8);
     head.append(&brand);
     head.append(&add);
 
-    let pill_label = gtk::Label::new(Some("Search or enter address"));
+    let pill_label = gtk::Label::new(Some("Qidiruv yoki URL manzil"));
     pill_label.set_xalign(0.0);
     pill_label.set_hexpand(true);
     pill_label.set_ellipsize(gtk::pango::EllipsizeMode::End);
@@ -784,7 +687,7 @@ fn build(gapp: &gtk::Application) {
     let pill = gtk::Button::new();
     pill.add_css_class("pill");
     pill.set_child(Some(&pill_inner));
-    pill.set_tooltip_text(Some("Go to address  (Ctrl+G)"));
+    pill.set_tooltip_text(Some("Manzilga o‘tish (Ctrl+G)"));
 
     let list = gtk::ListBox::new();
     list.add_css_class("tablist");
@@ -795,7 +698,7 @@ fn build(gapp: &gtk::Application) {
     list_scroll.set_vexpand(true);
     list_scroll.set_child(Some(&list));
 
-    let hint = gtk::Label::new(Some("ctrl+b hide  ·  ctrl+o overview"));
+    let hint = gtk::Label::new(Some("ctrl+b yashirish  ·  ctrl+o ko‘rinish"));
     hint.add_css_class("hint");
     hint.set_xalign(0.0);
     hint.set_margin_start(8);
@@ -809,6 +712,63 @@ fn build(gapp: &gtk::Application) {
     side.append(&pill);
     side.append(&list_scroll);
     side.append(&hint);
+
+    // ---- top control bar ----
+    let top_bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    top_bar.add_css_class("top-bar");
+
+    let btn_sidebar = gtk::Button::from_icon_name("view-sidebar-start-symbolic");
+    btn_sidebar.add_css_class("nav-btn");
+    btn_sidebar.set_tooltip_text(Some("Yon panel (Ctrl+B)"));
+
+    let btn_back = gtk::Button::from_icon_name("go-previous-symbolic");
+    btn_back.add_css_class("nav-btn");
+    btn_back.set_tooltip_text(Some("Orqaga"));
+
+    let btn_forward = gtk::Button::from_icon_name("go-next-symbolic");
+    btn_forward.add_css_class("nav-btn");
+    btn_forward.set_tooltip_text(Some("Oldinga"));
+
+    let btn_reload = gtk::Button::from_icon_name("view-refresh-symbolic");
+    btn_reload.add_css_class("nav-btn");
+    btn_reload.set_tooltip_text(Some("Qayta yuklash"));
+
+    let btn_home = gtk::Button::from_icon_name("go-home-symbolic");
+    btn_home.add_css_class("nav-btn");
+    btn_home.set_tooltip_text(Some("Bosh sahifa"));
+
+    let top_omnibox = gtk::Entry::new();
+    top_omnibox.add_css_class("omnibox");
+    top_omnibox.set_hexpand(true);
+    top_omnibox.set_placeholder_text(Some("Qidiruv yoki manzil (masalan: google.com)..."));
+
+    let btn_shields = gtk::Button::from_icon_name("security-high-symbolic");
+    btn_shields.add_css_class("nav-btn");
+    btn_shields.add_css_class("active");
+    btn_shields.set_tooltip_text(Some("MR Shields Faol"));
+
+    let btn_width = gtk::Button::from_icon_name("view-fullscreen-symbolic");
+    btn_width.add_css_class("nav-btn");
+    btn_width.set_tooltip_text(Some("Kenglik: Yarim / To‘liq (Ctrl+F)"));
+
+    let btn_overview = gtk::Button::from_icon_name("view-grid-symbolic");
+    btn_overview.add_css_class("nav-btn");
+    btn_overview.set_tooltip_text(Some("Umumiy ko‘rinish (Ctrl+O)"));
+
+    let btn_new_tab = gtk::Button::from_icon_name("tab-new-symbolic");
+    btn_new_tab.add_css_class("nav-btn");
+    btn_new_tab.set_tooltip_text(Some("Yangi tab (Ctrl+T)"));
+
+    top_bar.append(&btn_sidebar);
+    top_bar.append(&btn_back);
+    top_bar.append(&btn_forward);
+    top_bar.append(&btn_reload);
+    top_bar.append(&btn_home);
+    top_bar.append(&top_omnibox);
+    top_bar.append(&btn_shields);
+    top_bar.append(&btn_width);
+    top_bar.append(&btn_overview);
+    top_bar.append(&btn_new_tab);
 
     // ---- strip + shell ----
     let layout = StripLayout::new();
@@ -830,17 +790,21 @@ fn build(gapp: &gtk::Application) {
     shell.append(&side);
     shell.append(&strip);
 
+    let main_vbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    main_vbox.append(&top_bar);
+    main_vbox.append(&shell);
+
     // ---- address palette ----
     let entry = gtk::Entry::new();
     entry.add_css_class("palette-entry");
     entry.set_hexpand(true);
-    entry.set_placeholder_text(Some("Search or enter address"));
+    entry.set_placeholder_text(Some("Qidiruv yoki manzilni kiriting..."));
     let prow = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     let sicon = gtk::Image::from_icon_name("system-search-symbolic");
     sicon.set_pixel_size(20);
     prow.append(&sicon);
     prow.append(&entry);
-    let phint = gtk::Label::new(Some("Enter  go      Esc  cancel"));
+    let phint = gtk::Label::new(Some("Enter  o‘tish      Esc  bekor qilish"));
     phint.add_css_class("palette-hint");
     phint.set_xalign(0.0);
     let palette = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -852,8 +816,8 @@ fn build(gapp: &gtk::Application) {
     palette.append(&phint);
     palette.set_visible(false);
 
-    // ---- overview hint (the overview itself is the strip, zoomed) ----
-    let ov_hint = gtk::Label::new(Some("h / l  move      Enter  open      x  close      Esc  cancel"));
+    // ---- overview hint ----
+    let ov_hint = gtk::Label::new(Some("h / l  tanlash      Enter  ochish      x  yopish      Esc  chiqish"));
     ov_hint.add_css_class("ov-hint");
     ov_hint.set_halign(gtk::Align::Center);
     ov_hint.set_valign(gtk::Align::End);
@@ -864,20 +828,20 @@ fn build(gapp: &gtk::Application) {
     let load_bar = gtk::ProgressBar::new();
     load_bar.add_css_class("load-bar");
     load_bar.set_valign(gtk::Align::Start);
-    load_bar.set_can_target(false); // never steal clicks from the page
+    load_bar.set_can_target(false);
     load_bar.set_visible(false);
 
     let overlay = gtk::Overlay::new();
-    overlay.set_child(Some(&shell));
+    overlay.set_child(Some(&main_vbox));
     overlay.add_overlay(&load_bar);
     overlay.add_overlay(&palette);
     overlay.add_overlay(&ov_hint);
 
     let win = gtk::ApplicationWindow::builder()
         .application(gapp)
+        .title("MR Browser")
         .default_width(1400)
         .default_height(850)
-        .decorated(false) // no header, no footer: the page is the window
         .child(&overlay)
         .build();
 
@@ -890,6 +854,7 @@ fn build(gapp: &gtk::Application) {
         layout: layout.clone(),
         list: list.clone(),
         pill_label,
+        top_omnibox: top_omnibox.clone(),
         load_bar,
         palette,
         entry: entry.clone(),
@@ -917,8 +882,37 @@ fn build(gapp: &gtk::Application) {
     pill.connect_clicked(move |_| a.show_palette());
     let a = app.clone();
     entry.connect_activate(move |e| a.navigate(&e.text()));
+    let a = app.clone();
+    top_omnibox.connect_activate(move |e| a.navigate(&e.text()));
 
-    // In overview, clicking a (non-interactive) zoomed tab selects it.
+    // Toolbar tugmalarini ulash
+    let a = app.clone();
+    btn_sidebar.connect_clicked(move |_| a.toggle_sidebar());
+    let a = app.clone();
+    btn_back.connect_clicked(move |_| {
+        if let Some(v) = a.focused_view() { v.go_back(); }
+    });
+    let a = app.clone();
+    btn_forward.connect_clicked(move |_| {
+        if let Some(v) = a.focused_view() { v.go_forward(); }
+    });
+    let a = app.clone();
+    btn_reload.connect_clicked(move |_| {
+        if let Some(v) = a.focused_view() { v.reload(); }
+    });
+    let a = app.clone();
+    btn_home.connect_clicked(move |_| {
+        a.navigate("about:start");
+    });
+    let a = app.clone();
+    btn_width.connect_clicked(move |_| a.toggle_tab_full());
+    let a = app.clone();
+    btn_overview.connect_clicked(move |_| {
+        if a.overview_open() { a.exit_overview(false); } else { a.enter_overview(); }
+    });
+    let a = app.clone();
+    btn_new_tab.connect_clicked(move |_| a.new_tab());
+
     let pick = gtk::GestureClick::new();
     let a = app.clone();
     pick.connect_released(move |_, _, x, _| {
@@ -928,7 +922,6 @@ fn build(gapp: &gtk::Application) {
     });
     app.strip.add_controller(pick);
 
-    // Clicking anywhere in the page area dismisses the address palette.
     let click = gtk::GestureClick::new();
     click.set_propagation_phase(gtk::PropagationPhase::Capture);
     let a = app.clone();
@@ -939,7 +932,6 @@ fn build(gapp: &gtk::Application) {
     });
     shell.add_controller(click);
 
-    // Capture phase so the web page never swallows our ctrl+hjkl & friends.
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
     let a = app.clone();
@@ -948,7 +940,6 @@ fn build(gapp: &gtk::Application) {
     });
     win.add_controller(keys);
 
-    // Fresh every launch: one empty tab, no session restore.
     app.new_tab();
     if let Some(url) = std::env::args().nth(1) {
         app.navigate(&url);
@@ -958,7 +949,7 @@ fn build(gapp: &gtk::Application) {
 
 fn main() -> glib::ExitCode {
     let app = gtk::Application::builder()
-        .application_id("dev.MR Browser.browser")
+        .application_id("uz.mr.browser")
         .flags(gio::ApplicationFlags::NON_UNIQUE)
         .build();
     app.connect_activate(build);

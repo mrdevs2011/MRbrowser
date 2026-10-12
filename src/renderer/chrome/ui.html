@@ -774,7 +774,6 @@ function menuHTML() {
     ${it('print', 'printer', T('print'), 'Ctrl+P')}${it('devtools', 'code', T('devtools'), 'F12')}
     <div class="sepl"></div>
     ${it('bar-toggle', 'bookmark', S.bar ? T('bookmarks_hide') : T('bookmarks_show'), 'Ctrl+Shift+B')}
-    ${it('import-google', 'user', 'Google sessiyani otkazish')}
     ${it('settings', 'sliders', T('settings'))}
     <div class="card" style="padding:8px 12px 4px;font-size:11px">MR Browser ${esc(S.version)} · ${esc(S.engine)}</div></div>`;
 }
@@ -1024,7 +1023,7 @@ pop.addEventListener('click', (e) => {
   const t = e.target;
   let el;
   if ((el = t.closest('[data-sg]'))) return choose(+el.dataset.sg);
-  if ((el = t.closest('[data-cmd]'))) { if (el.dataset.cmd === 'import-google') { closeOv(); api.invoke('import-google-cookies').then(function(r){ var msg; if (r && r.ok) msg = 'OK (' + (r.method || '?') + '): ' + r.imported + ' cookie'; else msg = 'Fail: ' + ((r && r.imported) || 0) + ' keyring=' + ((r && r.keyring) || '?'); if (r && r.hint) msg = msg + ' | ' + r.hint; try { alert(msg); } catch (e1) {} }).catch(function(e){ try { alert('Xato: ' + e); } catch (e2) {} }); return; } api.send('cmd', el.dataset.cmd, el.dataset.arg || undefined); if (!el.dataset.keep) closeOv(el.dataset.cmd !== 'find'); return; }
+  if ((el = t.closest('[data-cmd]'))) { api.send('cmd', el.dataset.cmd, el.dataset.arg || undefined); if (!el.dataset.keep) closeOv(el.dataset.cmd !== 'find'); return; }
   if ((el = t.closest('[data-act]'))) { if (el.dataset.act === 'shield-toggle') api.send('shield-toggle'); closeOv(); return; }
   if ((el = t.closest('[data-dl]'))) { const [id, a] = el.dataset.dl.split(':'); api.send('dl-action', +id, a); return; }
   if ((el = t.closest('[data-perm]'))) { const r = $('#permrem'); api.send('perm-answer', +el.dataset.id, el.dataset.perm === '1', r ? r.checked : false); closeOv(true, true); return; }

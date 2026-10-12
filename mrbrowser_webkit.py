@@ -310,7 +310,6 @@ class App(Gtk.Window):
             'suggest-web': self.inv_suggest_web, 'downloads': lambda reply, *a: reply(self.dl_list()),
             'account-info': lambda reply, *a: reply({'id': 'default', 'name': 'MR', 'color': '#9fd8ff', 'isDefault': True}),
             'accounts:list': lambda reply, *a: reply({'accounts': [], 'current': 'default'}),
-            'import-google-cookies': lambda reply, *a: reply({'ok': False, 'imported': 0}),
         }
 
         self.build()
@@ -364,8 +363,18 @@ class App(Gtk.Window):
         self.ui.connect('key-press-event', self.on_key)
         self.ovl.add_overlay(self.ui)
         self.ovl.set_overlay_pass_through(self.ui, False)
+        self.ovl.connect('get-child-position', self.on_overlay_child_pos)
         self.relayout()
         self.ui.load_uri('file://' + UI_HTML)
+
+    def on_overlay_child_pos(self, ovl, widget, alloc):
+        if widget is self.ui:
+            alloc.x = 0
+            alloc.y = 0
+            alloc.width = ovl.get_allocated_width()
+            alloc.height = ovl.get_allocated_height() if self.overlay_open else self.chrome_h()
+            return True
+        return False
 
     def on_ui_load(self, v, ev):
         if ev == WebKit2.LoadEvent.FINISHED:
@@ -387,6 +396,8 @@ class App(Gtk.Window):
             self.ui.set_valign(Gtk.Align.START)
             self.ui.set_size_request(-1, h)
         self.ui.set_visible(h > 0 or self.overlay_open)
+        self.ui.queue_resize()
+        self.ovl.queue_resize()
 
     def eval_ui(self, js):
         try:

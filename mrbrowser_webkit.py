@@ -169,9 +169,48 @@ class Tab:
         v.connect('web-process-terminated', self.on_crash)
         v.connect('key-press-event', app.on_key)
         v.connect('button-press-event', self.on_click)
+        v.connect('scroll-event', self.on_scroll)
         fc = v.get_find_controller()
         fc.connect('found-text', self.on_found)
         fc.connect('failed-to-find-text', self.on_not_found)
+
+    def on_scroll(self, v, ev):
+        state = ev.state
+        ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
+        shift = bool(state & Gdk.ModifierType.SHIFT_MASK)
+        alt = bool(state & Gdk.ModifierType.MOD1_MASK)
+
+        # Shift + Wheel or horizontal scroll gesture switches tabs/scrolls horizontally like Niri
+        if shift or alt:
+            if ev.direction == Gdk.ScrollDirection.UP or ev.direction == Gdk.ScrollDirection.LEFT:
+                self.app.cycle_tabs(-1)
+                return True
+            elif ev.direction == Gdk.ScrollDirection.DOWN or ev.direction == Gdk.ScrollDirection.RIGHT:
+                self.app.cycle_tabs(1)
+                return True
+            elif ev.direction == Gdk.ScrollDirection.SMOOTH:
+                ok, dx, dy = ev.get_scroll_deltas()
+                if ok and abs(dx) > 0.4:
+                    self.app.cycle_tabs(1 if dx > 0 else -1)
+                    return True
+                elif ok and shift and abs(dy) > 0.4:
+                    self.app.cycle_tabs(1 if dy > 0 else -1)
+                    return True
+
+        if ev.direction == Gdk.ScrollDirection.SMOOTH:
+            ok, dx, dy = ev.get_scroll_deltas()
+            if ok and abs(dx) > 1.2:
+                # 2-finger horizontal swipe between tabs
+                self.app.cycle_tabs(1 if dx > 0 else -1)
+                return True
+        elif ev.direction == Gdk.ScrollDirection.LEFT:
+            self.app.cycle_tabs(-1)
+            return True
+        elif ev.direction == Gdk.ScrollDirection.RIGHT:
+            self.app.cycle_tabs(1)
+            return True
+
+        return False
 
     def show_blank(self):
         self.view.load_html(BLANK_HTML, 'about:blank')
@@ -368,6 +407,7 @@ class App(Gtk.Window):
         self.extra_nb.set_show_border(False)
         self.paned.pack1(self.nb, resize=True, shrink=False)
         self.paned.pack2(self.extra_nb, resize=True, shrink=False)
+        self.extra_nb.hide()
         self.paned.connect('button-release-event', self._on_paned_release)
         box.pack_start(self.paned, True, True, 0)
         self.ovl.add(box)
@@ -586,6 +626,13 @@ class App(Gtk.Window):
         else:
             t.view.grab_focus()
         self.schedule_push()
+
+    def cycle_tabs(self, step=1):
+        if len(self.tabs) < 2:
+            return
+        cur_idx = self.tabs.index(self.active) if self.active in self.tabs else 0
+        new_idx = (cur_idx + step) % len(self.tabs)
+        self.activate(self.tabs[new_idx])
 
     def switch_tab(self, tid=None, *a):
         t = self.tab_by_id(tid)
@@ -1226,6 +1273,19 @@ class App(Gtk.Window):
                 back = shift or k in ('iso_left_tab', 'page_up')
                 i = self.tabs.index(t) if t in self.tabs else 0
                 self.activate(self.tabs[(i + (-1 if back else 1)) % len(self.tabs)])
+            elif k in ('left', 'h') and self.tabs:
+                if shift:
+                    cur = self.tabs.index(t) if t in self.tabs else 0
+                    self.move_tab(t.id, max(0, cur - 1))
+                else:
+                    self.cycle_tabs(-1)
+            elif k in ('right', 'l_key', 'l') and shift and self.tabs:
+                cur = self.tabs.index(t) if t in self.tabs else 0
+                self.move_tab(t.id, min(len(self.tabs) - 1, cur + 1))
+            elif k in ('right', 'l') and not shift and self.tabs:
+                self.cycle_tabs(1)
+            elif k in ('backslash', 'bar'):
+                self.tile_toggle()
             elif k in ('plus', 'equal', 'kp_add'):
                 self.zoom_step(1)
             elif k in ('minus', 'kp_subtract'):

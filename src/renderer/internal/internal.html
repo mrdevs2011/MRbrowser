@@ -711,37 +711,12 @@ async function settings() {
   if (D.strings && typeof D.strings === 'object') STR = D.strings;
   if (D.theme) applyChromeTheme(D.theme);
   let tab = (location.hash || '#lang').replace('#', '') || 'lang';
-  const tabs = ['lang', 'ui', 'search', 'shortcuts', 'shields', 'cloud', 'clear', 'about'];
+  const tabs = ['lang', 'ui', 'search', 'shortcuts', 'shields', 'clear', 'about'];
   if (!tabs.includes(tab)) tab = 'lang';
   const sw = (key, on) => `<div class="tg ${on ? 'on' : ''}" data-sw="${key}"></div>`;
   const sel = (key, opts, val) => { const o = opts && typeof opts === 'object' ? opts : {}; return `<select data-sel="${key}">${Object.entries(o).map(([k, v]) => `<option value="${k}" ${k === val ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>`; };
 
-  const refreshCloud = async () => {
-    try {
-      const st = await mrb.invoke('sync:status') || {};
-      const statusEl = document.getElementById('cloud-status');
-      const form = document.getElementById('cloud-form');
-      const acts = document.getElementById('cloud-actions');
-      if (!statusEl) return;
-      if (st.loggedIn) {
-        statusEl.textContent = T('cloud_logged_in') + ': ' + (st.email || '');
-        if (form) form.style.display = 'none';
-        if (acts) acts.style.display = 'flex';
-      } else {
-        statusEl.textContent = T('cloud_logged_out');
-        if (form) form.style.display = 'flex';
-        if (acts) acts.style.display = 'none';
-      }
-    } catch (e) { console.error(e); }
-  };
-  let showTab = (id) => {
-    tab = id;
-    try { history.replaceState(null, '', '#' + id); } catch {}
-    app.querySelectorAll('.set-side button').forEach((b) => b.classList.toggle('on', b.dataset.tab === id));
-    app.querySelectorAll('.set-panel').forEach((p) => p.classList.toggle('on', p.dataset.panel === id));
-    if (id === 'shortcuts' && typeof loadSc === 'function') loadSc();
-    if (id === 'cloud' && typeof refreshCloud === 'function') refreshCloud();
-  };
+    };
   const draw = () => {
     const s = D.settings;
     const nav = [
@@ -750,7 +725,6 @@ async function settings() {
       ['search', T('sec_search')],
       ['shortcuts', T('sec_shortcuts')],
       ['shields', T('sec_shields')],
-      ['cloud', T('sec_cloud')],
       ['clear', T('sec_privacy')],
       ['about', T('sec_about')],
     ].map(([id, label]) => `<button type="button" data-tab="${id}" class="${id === tab ? 'on' : ''}">${esc(label)}</button>`).join('');
@@ -793,40 +767,7 @@ async function settings() {
             <div class="row" style="display:block"><div>${T('shields_off_sites')}</div><div style="margin-top:8px">${(s.shieldsOff && s.shieldsOff.length) ? s.shieldsOff.map((h) => `<span class="chip">${esc(h)}<button class="ib" data-un="${esc(h)}" style="width:22px;height:22px">${ic('x', 12)}</button></span>`).join('') : `<div class="d">${T('none')}</div>`}</div></div>
           </div>
         </div>
-        <div class="set-panel ${tab === 'cloud' ? 'on' : ''}" data-panel="cloud">
-          <h2>${T('cloud_title')}</h2><p class="sub">${T('cloud_d')}</p>
-          <div class="list" id="cloud-box">
-            <div class="row" style="display:block">
-              <div id="cloud-status" class="d" style="margin-bottom:12px">…</div>
-              <div id="cloud-form" style="display:flex;flex-direction:column;gap:10px;max-width:360px">
-                <label style="font-size:12px;color:var(--mute)">${T('cloud_email')}<input type="email" id="cloud-email" spellcheck="false" autocomplete="username" style="margin-top:4px;height:36px;padding:0 12px;width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:8px"></label>
-                <label style="font-size:12px;color:var(--mute)">${T('cloud_password')}<input type="password" id="cloud-pass" autocomplete="current-password" style="margin-top:4px;height:36px;padding:0 12px;width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:8px"></label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <button type="button" class="btn p" id="cloud-login">${T('cloud_login')}</button>
-                  <button type="button" class="btn" id="cloud-register">${T('cloud_register')}</button>
-                </div>
-              </div>
-              <div id="cloud-actions" style="display:none;flex-direction:column;gap:10px;max-width:360px">
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <button type="button" class="btn p" id="cloud-sync">${T('cloud_sync_now')}</button>
-                  <button type="button" class="btn" id="cloud-pull">${T('cloud_pull')}</button>
-                  <button type="button" class="btn" id="cloud-push">${T('cloud_push')}</button>
-                  <button type="button" class="btn" id="cloud-logout">${T('cloud_logout')}</button>
-                </div>
-              </div>
-              <p class="sub" style="margin-top:16px;font-size:12px">${T('cloud_setup_hint')}</p>
-              <pre style="margin-top:8px;padding:12px;background:var(--card2);border:1px solid var(--line);border-radius:8px;font-size:11px;overflow:auto;white-space:pre-wrap">create table if not exists public.browser_sync (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  payload jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null default now()
-);
-alter table public.browser_sync enable row level security;
-create policy "own_sync" on public.browser_sync
-  for all using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);</pre>
-            </div>
-          </div>
-        </div>
+
         <div class="set-panel ${tab === 'clear' ? 'on' : ''}" data-panel="clear">
           <h2>${T('sec_privacy')}</h2><p class="sub">${T('clear_data')}</p>
           <div class="list"><div class="row" style="display:block">
@@ -932,8 +873,6 @@ create policy "own_sync" on public.browser_sync
 
   draw();
   if (tab === 'shortcuts') loadSc();
-  if (tab === 'cloud') refreshCloud();
-  else refreshCloud();
 
   app.onclick = async (e) => {
     const tabBtn = e.target.closest('[data-tab]');
@@ -947,48 +886,8 @@ create policy "own_sync" on public.browser_sync
       await mrb.invoke('data:clear', o); toast(T('cleared'));
       return;
     }
-    if (e.target.id === 'cloud-login' || e.target.id === 'cloud-register' || (e.target.closest && (e.target.closest('#cloud-login') || e.target.closest('#cloud-register')))) {
-      const btn = e.target.id === 'cloud-login' || e.target.id === 'cloud-register' ? e.target : (e.target.closest('#cloud-login') || e.target.closest('#cloud-register'));
-      const email = ((document.getElementById('cloud-email') || {}).value || '').trim();
-      const pass = (document.getElementById('cloud-pass') || {}).value || '';
-      if (!email || !pass) { toast(T('cloud_err_empty')); return; }
-      const isReg = btn.id === 'cloud-register';
-      const cmd = isReg ? 'sync:register' : 'sync:login';
-      btn.disabled = true;
-      let r = null;
-      try { r = await mrb.invoke(cmd, email, pass); } catch (err) { toast(T('cloud_err_network')); btn.disabled = false; return; }
-      btn.disabled = false;
-      if (!r || !r.ok) {
-        const code = r && r.error;
-        if (code === 'email_not_confirmed') toast(T('cloud_err_email'));
-        else if (code === 'invalid_credentials') toast(T('cloud_err_creds'));
-        else if (code === 'network') toast(T('cloud_err_network'));
-        else toast((r && (r.raw || r.error)) || T('cloud_fail'));
-        return;
-      }
-      if (r.needsConfirm) toast(T('cloud_needs_confirm'));
-      else toast(isReg ? T('cloud_register_ok') : T('cloud_login_ok'));
-      await refreshCloud();
-      return;
-    }
-    if (e.target.id === 'cloud-logout') {
-      await mrb.invoke('sync:logout');
-      toast(T('cloud_logout'));
-      await refreshCloud();
-      return;
-    }
-    if (e.target.id === 'cloud-sync' || e.target.id === 'cloud-push') {
-      const r = await mrb.invoke('sync:push');
-      toast(r && r.ok ? T('cloud_ok') : ((r && r.error) || T('cloud_fail')));
-      return;
-    }
-    if (e.target.id === 'cloud-pull') {
-      const r = await mrb.invoke('sync:pull');
-      toast(r && r.ok ? T('cloud_ok') : ((r && r.error) || T('cloud_fail')));
-      if (r && r.ok) { D = await mrb.invoke('settings:get'); draw(); showTab('cloud'); await refreshCloud(); }
-      return;
-    }
     // shortcuts manager
+
     if (e.target.id === 'sc-add' || e.target.closest('#sc-add')) {
       scForm = { mode: 'add' }; renderSc(); return;
     }

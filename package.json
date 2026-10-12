@@ -6,6 +6,7 @@
   "author": "MR",
   "scripts": {
     "start": "electron .",
+    "start:webkit": "./run_webkit.sh",
     "dist": "electron-builder --linux AppImage"
   },
   "build": {
@@ -18,9 +19,9 @@
       "src/**/*",
       "assets/icon.png",
       "package.json",
-      "node_modules/@supabase/**/*",
-      "node_modules/tslib/**/*"
+      "node_modules/**/*"
     ],
+
     "linux": {
       "target": "AppImage",
       "category": "Network",
@@ -38,7 +39,5 @@
   "devDependencies": {
     "electron-builder": "^26.15.3"
   },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.117.3"
-  }
+  "dependencies": {}
 }

@@ -8,7 +8,7 @@ const { app, BrowserWindow, WebContentsView, ipcMain, Menu, session, shell, prot
 const path = require('path');
 const fs = require('fs');
 const store = require('../shared/store');
-const sync = require('./sync');
+
 const chromeCookies = require('./chromeCookies');
 const i18n = require('../shared/i18n');
 const shields = require('../shared/shields');
@@ -789,7 +789,7 @@ function buildState(c) {
     maximized: c.win.isMaximized(), fullscreen: c.win.isFullScreen(),
     engine: eng(aid(c, t)).name, version: VERSION, internal: !homeBlank && raw.startsWith('mrb:'), blank: homeBlank || url === '', tile: !!s.tile,
     lang: i18n.norm(s.language), strings: i18n.dict(s.language), theme: resolvedTheme(), themePref: s.theme || 'system',
-    authRequired: !cloudAuthed(), cloudEmail: (sync.status() && sync.status().email) || null,
+    authRequired: false, cloudEmail: null,
   };
 }
 function pushState(c) {
@@ -922,7 +922,7 @@ function setViewBounds(t, b) {
   if (!t.brSet) { t.brSet = true; try { t.view.setBorderRadius(0); } catch {} }
 }
 function cloudAuthed() {
-  try { return !!(sync.status() && sync.status().loggedIn); } catch { return false; }
+  return true;
 }
 function layout(c) {
   if (c.win.isDestroyed()) return;
@@ -1856,56 +1856,12 @@ function registerIpc() {
   });
   page('settings:set', (c, patch) => { applySettings(patch, aid(c)); return true; });
 
-  // Chrome root login (auth gate)
-  
-  handle('import-google-cookies', async (c) => {
-    try {
-      const r = await chromeCookies.importGoogleCookies(c.ses);
-      return r;
-    } catch (e) {
-      return { ok: false, error: String(e && e.message || e), imported: 0 };
-    }
-  });
-  handle('list-cookie-sources', () => chromeCookies.listSources().map((s) => ({ id: s.id, browser: s.browser, profile: s.profileLabel })));
-
-  handle('sync-status', () => sync.status());
-  handle('sync-login', async (c, email, password) => {
-    const r = await sync.login(email, password);
-    if (r && r.ok) { try { applyThemeSource(); } catch {} for (const x of ctxs) layout(x); pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); }
-    return r;
-  });
-  handle('sync-register', async (c, email, password) => {
-    const r = await sync.register(email, password);
-    if (r && r.ok && !r.needsConfirm) { try { applyThemeSource(); } catch {} for (const x of ctxs) layout(x); pushAll(); }
-    return r;
-  });
-  handle('sync-logout', async () => {
-    const r = await sync.logout();
-    for (const x of ctxs) layout(x);
-    pushAll();
-    return r;
-  });
-
-  page('sync:status', () => sync.status());
-  page('sync:register', async (_c, email, password) => sync.register(email, password));
-  page('sync:login', async (_c, email, password) => {
-    const r = await sync.login(email, password);
-    if (r && r.ok) {
-      try { applyThemeSource(); } catch {}
-      try { for (const x of ctxs) layout(x); pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
-    }
-    return r;
-  });
-  page('sync:logout', async () => { const r = await sync.logout(); for (const x of ctxs) layout(x); pushAll(); return r; });
-  page('sync:push', async () => sync.push());
-  page('sync:pull', async () => {
-    const r = await sync.pull();
-    if (r && r.ok) {
-      try { applyThemeSource(); } catch {}
-      try { pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
-    }
-    return r;
-  });
+  page('sync:status', () => ({ loggedIn: false, email: null, userId: null, lastPullAt: 0 }));
+  page('sync:register', async () => ({ ok: false, error: 'disabled' }));
+  page('sync:login', async () => ({ ok: false, error: 'disabled' }));
+  page('sync:logout', async () => ({ ok: true }));
+  page('sync:push', async () => ({ ok: false, error: 'disabled' }));
+  page('sync:pull', async () => ({ ok: false, error: 'disabled' }));
   page('settings:unblock-site', (c, host) => {
     const A = store.acc(aid(c));
     A.shieldsOff = A.shieldsOff.filter((h) => h !== host);
@@ -2044,17 +2000,7 @@ function start() {
   nativeTheme.on('updated', () => { if ((store.get().settings.theme || 'system') === 'system') pushAll(); });
   Menu.setApplicationMenu(null);
   registerIpc();
-  // Supabase bulut sinxroni
-  try {
-    sync.init(store, {
-      onChange: () => {
-        try { applyThemeSource(); } catch {}
-        try { for (const x of ctxs) layout(x); pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
-      },
-    });
-    const _save = store.save.bind(store);
-    store.save = () => { _save(); try { sync.schedulePush(); } catch {} };
-  } catch (e) { console.error('[sync init]', e); }
+
   setupSession(session.defaultSession, false, "default");
   const a = parseArgs(process.argv.slice(app.isPackaged ? 1 : 2));
   const d = store.get();

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=MRBrowser
+Comment=MR Browser (Classic WebKit)
+Exec=mrbrowser %U
+Icon=mrbrowser
+Terminal=false
+Categories=Network;WebBrowser;

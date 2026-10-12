@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+HERE="$(dirname "$(readlink -f "${0}")")"
+export PYTHONUNBUFFERED=1
+cd "$HERE/usr/share/mrbrowser"
+exec python3 "$HERE/usr/share/mrbrowser/mrbrowser_webkit.py" "$@"

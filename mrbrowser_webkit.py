@@ -270,6 +270,7 @@ class App(Gtk.Window):
         self.find_open = False
         self.html_fs = False
         self.tile = False
+        self.tile_ratio = 0.5
         self.perms = {}
         self.perm_seq = 0
         self.dls = []
@@ -278,6 +279,8 @@ class App(Gtk.Window):
         self.push_src = 0
         self.ui_ready = False
         self.last_dl_push = 0
+
+        self._init_styles()
 
         dm = WebKit2.WebsiteDataManager(
             base_data_directory=os.path.join(DATA_DIR, 'web_data'),
@@ -319,6 +322,30 @@ class App(Gtk.Window):
         self.connect('key-press-event', self.on_key)
         self.connect('window-state-event', lambda *a: self.schedule_push())
         self.new_tab()
+
+    def _init_styles(self):
+        css_data = b'''
+        paned > separator {
+            background-color: rgba(255, 255, 255, 0.1);
+            min-width: 6px;
+            margin: 0;
+            transition: background-color 0.15s ease, min-width 0.15s ease;
+        }
+        paned > separator:hover {
+            background-color: #3b82f6;
+            min-width: 8px;
+        }
+        '''
+        try:
+            provider = Gtk.CssProvider()
+            provider.load_from_data(css_data)
+            Gtk.StyleContext.add_provider_for_screen(
+                Gdk.Screen.get_default(),
+                provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+        except Exception as e:
+            print('[css]', e, file=sys.stderr)
 
     # ---------- UI shell ----------
     def build(self):
@@ -676,29 +703,49 @@ class App(Gtk.Window):
         self.schedule_push()
 
     def apply_tiling(self):
-        # Clean up existing extra notebook
+        # Clean up existing extra notebook and paned
         if hasattr(self, 'extra_nb') and self.extra_nb:
             for child in list(self.extra_nb.get_children()):
                 self.extra_nb.remove(child)
-            if self.extra_nb in self.content_box.get_children():
-                self.content_box.remove(self.extra_nb)
             self.extra_nb = None
+
+        if hasattr(self, 'paned') and self.paned:
+            if self.nb in self.paned.get_children():
+                self.paned.remove(self.nb)
+            if self.paned in self.content_box.get_children():
+                self.content_box.remove(self.paned)
+            self.paned = None
+
+        if self.nb in self.content_box.get_children():
+            self.content_box.remove(self.nb)
 
         if self.tile and len(self.tabs) > 1:
             cur_idx = self.tabs.index(self.active) if self.active in self.tabs else 0
             other_idx = (cur_idx + 1) % len(self.tabs)
             other_tab = self.tabs[other_idx]
-            
+
             # Detach other view from primary notebook temporarily if needed
             if other_tab.view.get_parent() == self.nb:
                 self.nb.remove(other_tab.view)
-                
+
             self.extra_nb = Gtk.Notebook()
             self.extra_nb.set_show_tabs(False)
             self.extra_nb.set_show_border(False)
             self.extra_nb.append_page(other_tab.view, None)
             other_tab.view.show()
-            self.content_box.pack_start(self.extra_nb, True, True, 0)
+
+            self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+            self.paned.pack1(self.nb, resize=True, shrink=False)
+            self.paned.pack2(self.extra_nb, resize=True, shrink=False)
+
+            # Set split position based on saved ratio or default half
+            alloc = self.get_allocation()
+            w = alloc.width if alloc.width > 200 else 1360
+            pos = int(w * getattr(self, 'tile_ratio', 0.5))
+            self.paned.set_position(pos)
+            self.paned.connect('notify::position', self._on_paned_pos_changed)
+
+            self.content_box.pack_start(self.paned, True, True, 0)
             self.content_box.show_all()
         else:
             # Reattach all views back to main notebook in order
@@ -708,8 +755,16 @@ class App(Gtk.Window):
                         tab.view.get_parent().remove(tab.view)
                     self.nb.insert_page(tab.view, None, i)
                     tab.view.show()
+            self.content_box.pack_start(self.nb, True, True, 0)
+            self.content_box.show_all()
             if self.active in self.tabs:
                 self.nb.set_current_page(self.tabs.index(self.active))
+
+    def _on_paned_pos_changed(self, paned, gparam):
+        alloc = paned.get_allocation()
+        if alloc.width > 100:
+            pos = paned.get_position()
+            self.tile_ratio = max(0.1, min(0.9, pos / float(alloc.width)))
 
     def zoom_step(self, d):
         t = self.active

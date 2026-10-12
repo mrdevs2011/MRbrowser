@@ -50,7 +50,10 @@ fi
 
 chmod +x "$TARGET"
 
-# 3. Ilovalar menyusiga (.desktop) qo'shish
+# 3. Eski yorliqlarni tozalash va yangi .desktop qo'shish
+rm -f "$DESKTOP_DIR/mr-app-MRBrowser.desktop" 2>/dev/null || true
+rm -rf "$HOME/.cache/mrbrowser" 2>/dev/null || true
+
 cat > "$DESKTOP_DIR/mrbrowser.desktop" <<EOF
 [Desktop Entry]
 Type=Application

@@ -3,6 +3,12 @@
 """MR Browser - classic UI on a lightweight native WebKitGTK engine (no Electron / Chromium)."""
 import os, sys, json, time, base64, re, copy, signal, threading, traceback
 import urllib.request, urllib.parse
+# Configure optimal hardware acceleration & smooth rendering before WebKit loads
+os.environ.setdefault('WEBKIT_DISABLE_COMPOSITING_MODE', '0')
+os.environ.setdefault('WEBKIT_FORCE_COMPOSITING_MODE', '1')
+os.environ.setdefault('GDK_RENDERING', 'gl')
+os.environ.setdefault('WEBKIT_GST_HOLEPUNCH', '1')
+
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
@@ -141,8 +147,11 @@ class Tab:
             self.view = WebKit2.WebView(web_context=app.ctx, user_content_manager=app.tab_ucm)
         s = self.view.get_settings()
         for fn, val in (('set_enable_developer_extras', True), ('set_enable_smooth_scrolling', True),
+                        ('set_enable_accelerated_2d_canvas', True),
                         ('set_enable_media_stream', True), ('set_enable_mediasource', True),
                         ('set_enable_webgl', True), ('set_enable_page_cache', True),
+                        ('set_enable_site_specific_quirks', True),
+                        ('set_enable_back_forward_navigation_gestures', True),
                         ('set_javascript_can_open_windows_automatically', True),
                         ('set_user_agent', UA)):
             try:
@@ -293,6 +302,8 @@ class App(Gtk.Window):
         self.ctx = WebKit2.WebContext.new_with_website_data_manager(dm)
         try:
             self.ctx.set_cache_model(WebKit2.CacheModel.WEB_BROWSER)
+            self.ctx.set_process_model(WebKit2.ProcessModel.MULTIPLE_SECONDARY_PROCESSES)
+            self.ctx.set_web_process_count_limit(8)
         except Exception:
             pass
         self.ctx.connect('download-started', self.on_download)

@@ -25,6 +25,10 @@ cat > "$APPDIR/AppRun" << 'RUN'
 #!/usr/bin/env bash
 HERE="$(dirname "$(readlink -f "${0}")")"
 export PYTHONUNBUFFERED=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=0
+export WEBKIT_FORCE_COMPOSITING_MODE=1
+export GDK_RENDERING=gl
+export WEBKIT_GST_HOLEPUNCH=1
 cd "$HERE/usr/share/mrbrowser"
 exec python3 "$HERE/usr/share/mrbrowser/mrbrowser_webkit.py" "$@"
 RUN

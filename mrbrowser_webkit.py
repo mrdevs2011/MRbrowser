@@ -359,12 +359,17 @@ class App(Gtk.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.spacer = Gtk.Box()
         box.pack_start(self.spacer, False, False, 0)
-        self.content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.nb = Gtk.Notebook()
         self.nb.set_show_tabs(False)
         self.nb.set_show_border(False)
-        self.content_box.pack_start(self.nb, True, True, 0)
-        box.pack_start(self.content_box, True, True, 0)
+        self.extra_nb = Gtk.Notebook()
+        self.extra_nb.set_show_tabs(False)
+        self.extra_nb.set_show_border(False)
+        self.paned.pack1(self.nb, resize=True, shrink=False)
+        self.paned.pack2(self.extra_nb, resize=True, shrink=False)
+        self.paned.connect('button-release-event', self._on_paned_release)
+        box.pack_start(self.paned, True, True, 0)
         self.ovl.add(box)
 
         ucm = WebKit2.UserContentManager()
@@ -704,70 +709,55 @@ class App(Gtk.Window):
 
     def tile_toggle(self):
         self.tile = not self.tile
+        if self.tile and len(self.tabs) < 2:
+            self.new_tab(activate=False)
         self.apply_tiling()
         self.schedule_push()
 
     def apply_tiling(self):
-        # Clean up existing extra notebook and paned
-        if hasattr(self, 'extra_nb') and self.extra_nb:
-            for child in list(self.extra_nb.get_children()):
-                self.extra_nb.remove(child)
-            self.extra_nb = None
-
-        if hasattr(self, 'paned') and self.paned:
-            if self.nb in self.paned.get_children():
-                self.paned.remove(self.nb)
-            if self.paned in self.content_box.get_children():
-                self.content_box.remove(self.paned)
-            self.paned = None
-
-        if self.nb in self.content_box.get_children():
-            self.content_box.remove(self.nb)
-
         if self.tile and len(self.tabs) > 1:
             cur_idx = self.tabs.index(self.active) if self.active in self.tabs else 0
             other_idx = (cur_idx + 1) % len(self.tabs)
             other_tab = self.tabs[other_idx]
 
-            # Detach other view from primary notebook temporarily if needed
+            # Clear extra_nb of any prior views
+            for child in list(self.extra_nb.get_children()):
+                if child != other_tab.view:
+                    self.extra_nb.remove(child)
+
+            # Detach other_tab view from self.nb if needed
             if other_tab.view.get_parent() == self.nb:
                 self.nb.remove(other_tab.view)
 
-            self.extra_nb = Gtk.Notebook()
-            self.extra_nb.set_show_tabs(False)
-            self.extra_nb.set_show_border(False)
-            self.extra_nb.append_page(other_tab.view, None)
-            other_tab.view.show()
+            if other_tab.view.get_parent() != self.extra_nb:
+                self.extra_nb.append_page(other_tab.view, None)
 
-            self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-            self.paned.pack1(self.nb, resize=True, shrink=False)
-            self.paned.pack2(self.extra_nb, resize=True, shrink=False)
-
-            # Ensure current active tab is visible in self.nb
+            # Ensure self.active is visible in self.nb
             if self.active in self.tabs:
                 p_num = self.nb.page_num(self.active.view)
                 if p_num >= 0:
                     self.nb.set_current_page(p_num)
 
-            # Set split position
+            self.extra_nb.show_all()
+
+            # Set split position based on window width
             alloc = self.get_allocation()
             w = alloc.width if alloc.width > 200 else 1360
             pos = int(w * getattr(self, 'tile_ratio', 0.5))
             self.paned.set_position(pos)
-            self.paned.connect('button-release-event', self._on_paned_release)
-
-            self.content_box.pack_start(self.paned, True, True, 0)
-            self.content_box.show_all()
         else:
-            # Reattach all views back to main notebook in order
+            # Untile: return all tabs back into self.nb
+            for child in list(self.extra_nb.get_children()):
+                self.extra_nb.remove(child)
+            self.extra_nb.hide()
+
             for i, tab in enumerate(self.tabs):
                 if tab.view.get_parent() != self.nb:
                     if tab.view.get_parent():
                         tab.view.get_parent().remove(tab.view)
                     self.nb.insert_page(tab.view, None, i)
                     tab.view.show()
-            self.content_box.pack_start(self.nb, True, True, 0)
-            self.content_box.show_all()
+
             if self.active in self.tabs:
                 self.nb.set_current_page(self.tabs.index(self.active))
 

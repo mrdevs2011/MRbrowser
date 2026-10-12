@@ -375,6 +375,7 @@ select,input[type=text]{font:13px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas
   .search { height: 46px; }
 }
 
+
 </style></head>
 <body><div id="app"></div><div class="toast" id="toast"></div>
 <script>
@@ -946,15 +947,27 @@ create policy "own_sync" on public.browser_sync
       await mrb.invoke('data:clear', o); toast(T('cleared'));
       return;
     }
-    if (e.target.id === 'cloud-login' || e.target.id === 'cloud-register') {
-      const email = (document.getElementById('cloud-email') || {}).value || '';
+    if (e.target.id === 'cloud-login' || e.target.id === 'cloud-register' || (e.target.closest && (e.target.closest('#cloud-login') || e.target.closest('#cloud-register')))) {
+      const btn = e.target.id === 'cloud-login' || e.target.id === 'cloud-register' ? e.target : (e.target.closest('#cloud-login') || e.target.closest('#cloud-register'));
+      const email = ((document.getElementById('cloud-email') || {}).value || '').trim();
       const pass = (document.getElementById('cloud-pass') || {}).value || '';
-      if (!email || !pass) { toast(T('cloud_fail')); return; }
-      const cmd = e.target.id === 'cloud-register' ? 'sync:register' : 'sync:login';
-      const r = await mrb.invoke(cmd, email, pass);
-      if (!r || !r.ok) { toast((r && r.error) || T('cloud_fail')); return; }
+      if (!email || !pass) { toast(T('cloud_err_empty')); return; }
+      const isReg = btn.id === 'cloud-register';
+      const cmd = isReg ? 'sync:register' : 'sync:login';
+      btn.disabled = true;
+      let r = null;
+      try { r = await mrb.invoke(cmd, email, pass); } catch (err) { toast(T('cloud_err_network')); btn.disabled = false; return; }
+      btn.disabled = false;
+      if (!r || !r.ok) {
+        const code = r && r.error;
+        if (code === 'email_not_confirmed') toast(T('cloud_err_email'));
+        else if (code === 'invalid_credentials') toast(T('cloud_err_creds'));
+        else if (code === 'network') toast(T('cloud_err_network'));
+        else toast((r && (r.raw || r.error)) || T('cloud_fail'));
+        return;
+      }
       if (r.needsConfirm) toast(T('cloud_needs_confirm'));
-      else toast(T('cloud_ok'));
+      else toast(isReg ? T('cloud_register_ok') : T('cloud_login_ok'));
       await refreshCloud();
       return;
     }
@@ -1100,6 +1113,7 @@ function error() {
   $('#bk').onclick = () => history_back();
 }
 const history_back = () => window.history.back();
+
 
 
 const R = { newtab, dashboard, history, bookmarks, downloads, settings, error };

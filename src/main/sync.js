@@ -152,28 +152,50 @@ function status() {
   };
 }
 
+function mapAuthError(error) {
+  if (!error) return 'unknown';
+  const msg = String(error.message || error || '').toLowerCase();
+  const code = String(error.code || '').toLowerCase();
+  if (code === 'email_not_confirmed' || msg.includes('email not confirmed')) return 'email_not_confirmed';
+  if (code === 'invalid_credentials' || msg.includes('invalid login credentials')) return 'invalid_credentials';
+  if (msg.includes('invalid') && msg.includes('email')) return 'invalid_email';
+  if (msg.includes('network') || msg.includes('fetch')) return 'network';
+  return error.message || String(error);
+}
+
 async function register(email, password) {
-  const sb = await getClient();
-  const { data, error } = await sb.auth.signUp({ email: String(email || '').trim(), password: String(password || '') });
-  if (error) return { ok: false, error: error.message };
-  if (data.session) saveSession(data.session);
-  else if (data.user) {
-    // Email confirm kerak bo'lishi mumkin — session yo'q
-    return { ok: true, needsConfirm: true, email: data.user.email };
+  try {
+    const sb = await getClient();
+    const { data, error } = await sb.auth.signUp({ email: String(email || '').trim(), password: String(password || '') });
+    if (error) return { ok: false, error: mapAuthError(error), raw: error.message };
+    if (data.session) {
+      saveSession(data.session);
+      return { ok: true, email: data.user && data.user.email, needsConfirm: false };
+    }
+    if (data.user) {
+      // Email confirm kerak — session yo'q
+      return { ok: true, needsConfirm: true, email: data.user.email };
+    }
+    return { ok: false, error: 'unknown' };
+  } catch (e) {
+    return { ok: false, error: 'network', raw: e && e.message };
   }
-  return { ok: true, email: data.user && data.user.email, needsConfirm: false };
 }
 
 async function login(email, password) {
-  const sb = await getClient();
-  const { data, error } = await sb.auth.signInWithPassword({
-    email: String(email || '').trim(),
-    password: String(password || ''),
-  });
-  if (error) return { ok: false, error: error.message };
-  if (data.session) saveSession(data.session);
-  const pulled = await pull();
-  return { ok: true, email: data.user && data.user.email, pulled: pulled.ok, pullError: pulled.error || null };
+  try {
+    const sb = await getClient();
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: String(email || '').trim(),
+      password: String(password || ''),
+    });
+    if (error) return { ok: false, error: mapAuthError(error), raw: error.message };
+    if (data.session) saveSession(data.session);
+    const pulled = await pull();
+    return { ok: true, email: data.user && data.user.email, pulled: pulled.ok, pullError: pulled.error || null };
+  } catch (e) {
+    return { ok: false, error: 'network', raw: e && e.message };
+  }
 }
 
 async function logout() {
@@ -258,9 +280,16 @@ function init(store, opts) {
     };
   }
   sessionCache = loadSession();
-  restoreAuth().then((s) => {
-    if (s) pull().catch(() => {});
-  }).catch(() => {});
+  restoreAuth().then(async (s) => {
+    if (s) {
+      try { await pull(); } catch {}
+      if (typeof onChange === 'function') { try { onChange(); } catch {} }
+    } else if (typeof onChange === 'function') {
+      try { onChange(); } catch {}
+    }
+  }).catch(() => {
+    if (typeof onChange === 'function') { try { onChange(); } catch {} }
+  });
 }
 
 module.exports = {

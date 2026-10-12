@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const store = require('../shared/store');
 const sync = require('./sync');
+const chromeCookies = require('./chromeCookies');
 const i18n = require('../shared/i18n');
 const shields = require('../shared/shields');
 const logger = require('../shared/logger');
@@ -26,18 +27,26 @@ function chromeFull() {
   return process.versions.chrome || '131.0.0.0';
 }
 function buildChromeUA() {
-  const full = chromeFull();
   // Linux Chrome UA — Electron so'zi yo'q. Versiya runtime Chromium bilan bir xil.
-  return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + full + ' Safari/537.36';
+  return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/' + chromeMajor() + '.0.0.0 Safari/537.36';
 }
-function secChUa() {
-  const m = chromeMajor();
-  return '"Not_A Brand";v="8", "Chromium";v="' + m + '", "Google Chrome";v="' + m + '"';
+// Chromium GREASE brend ro'yxati (native navigator.userAgentData bilan bir xil). "Google Chrome" brendi YO'Q — Chromium/Brave kabi.
+function brandList(full) {
+  const seed = Number(chromeMajor());
+  const chars = [' ', '(', ':', '-', '.', '/', ')', ';', '=', '?', '_'];
+  const vers = ['8', '99', '24'];
+  const grease = 'Not' + chars[seed % 11] + 'A' + chars[(seed + 1) % 11] + 'Brand';
+  const gv = vers[seed % 3];
+  const list = [
+    { brand: grease, version: full ? gv + '.0.0.0' : gv },
+    { brand: 'Chromium', version: full ? chromeFull() : String(seed) },
+  ];
+  if (seed % 2 === 1) list.reverse();
+  return list;
 }
-function secChUaFull() {
-  const full = chromeFull();
-  return '"Not_A Brand";v="10.0.0.0", "Chromium";v="' + full + '", "Google Chrome";v="' + full + '"';
-}
+function fmtBrands(l) { return l.map((b) => '"' + b.brand + '";v="' + b.version + '"').join(', '); }
+function secChUa() { return fmtBrands(brandList(false)); }
+function secChUaFull() { return fmtBrands(brandList(true)); }
 const CHROME_UA = buildChromeUA();
 app.userAgentFallback = CHROME_UA;
 // Mahsulot nomi MRBrowser — userData ~/.config/mrbrowser (Chrome profiliga aralashmasin)
@@ -780,6 +789,7 @@ function buildState(c) {
     maximized: c.win.isMaximized(), fullscreen: c.win.isFullScreen(),
     engine: eng(aid(c, t)).name, version: VERSION, internal: !homeBlank && raw.startsWith('mrb:'), blank: homeBlank || url === '', tile: !!s.tile,
     lang: i18n.norm(s.language), strings: i18n.dict(s.language), theme: resolvedTheme(), themePref: s.theme || 'system',
+    authRequired: !cloudAuthed(), cloudEmail: (sync.status() && sync.status().email) || null,
   };
 }
 function pushState(c) {
@@ -911,12 +921,26 @@ function setViewBounds(t, b) {
   if (t.bk !== k) { t.bk = k; t.view.setBounds(b); }
   if (!t.brSet) { t.brSet = true; try { t.view.setBorderRadius(0); } catch {} }
 }
+function cloudAuthed() {
+  try { return !!(sync.status() && sync.status().loggedIn); } catch { return false; }
+}
 function layout(c) {
   if (c.win.isDestroyed()) return;
   const [w, h] = winSize(c);
   const ch = chromeH(c);
-  c.ui.setVisible(!c.htmlFs);
-  c.ui.setBounds(c.overlay ? { x: 0, y: 0, width: w, height: h } : { x: 0, y: 0, width: w, height: ch });
+  const gate = !cloudAuthed();
+  c.authGate = gate;
+  c.ui.setVisible(!c.htmlFs || gate);
+  c.ui.setBounds((gate || c.overlay) ? { x: 0, y: 0, width: w, height: h } : { x: 0, y: 0, width: w, height: ch });
+  if (gate) {
+    // Tablarni yashirish — faqat root login
+    for (const t of c.tabs) {
+      if (t.attached) { try { c.win.contentView.removeChildView(t.view); } catch {} t.attached = false; }
+    }
+    try { c.win.contentView.addChildView(c.ui); } catch {}
+    paintFrame(c, []);
+    return;
+  }
   if (c.reveal) { c.reveal = false; revealActive(c); }
   const vis = visibleTabs(c);
   c.visKey = vis.map((t) => t.id).join(',');
@@ -1831,17 +1855,48 @@ function registerIpc() {
     };
   });
   page('settings:set', (c, patch) => { applySettings(patch, aid(c)); return true; });
+
+  // Chrome root login (auth gate)
+  
+  handle('import-google-cookies', async (c) => {
+    try {
+      const r = await chromeCookies.importGoogleCookies(c.ses);
+      return r;
+    } catch (e) {
+      return { ok: false, error: String(e && e.message || e), imported: 0 };
+    }
+  });
+  handle('list-cookie-sources', () => chromeCookies.listSources().map((s) => ({ id: s.id, browser: s.browser, profile: s.profileLabel })));
+
+  handle('sync-status', () => sync.status());
+  handle('sync-login', async (c, email, password) => {
+    const r = await sync.login(email, password);
+    if (r && r.ok) { try { applyThemeSource(); } catch {} for (const x of ctxs) layout(x); pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); }
+    return r;
+  });
+  handle('sync-register', async (c, email, password) => {
+    const r = await sync.register(email, password);
+    if (r && r.ok && !r.needsConfirm) { try { applyThemeSource(); } catch {} for (const x of ctxs) layout(x); pushAll(); }
+    return r;
+  });
+  handle('sync-logout', async () => {
+    const r = await sync.logout();
+    for (const x of ctxs) layout(x);
+    pushAll();
+    return r;
+  });
+
   page('sync:status', () => sync.status());
   page('sync:register', async (_c, email, password) => sync.register(email, password));
   page('sync:login', async (_c, email, password) => {
     const r = await sync.login(email, password);
     if (r && r.ok) {
       try { applyThemeSource(); } catch {}
-      try { pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
+      try { for (const x of ctxs) layout(x); pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
     }
     return r;
   });
-  page('sync:logout', async () => sync.logout());
+  page('sync:logout', async () => { const r = await sync.logout(); for (const x of ctxs) layout(x); pushAll(); return r; });
   page('sync:push', async () => sync.push());
   page('sync:pull', async () => {
     const r = await sync.pull();
@@ -1994,7 +2049,7 @@ function start() {
     sync.init(store, {
       onChange: () => {
         try { applyThemeSource(); } catch {}
-        try { pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
+        try { for (const x of ctxs) layout(x); pushAll(); broadcastPages('settings'); broadcastPages('bookmarks'); broadcastPages('history'); } catch {}
       },
     });
     const _save = store.save.bind(store);

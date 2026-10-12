@@ -68,24 +68,27 @@ function setup(ses, d) {
       if (d.chromeUA) {
         h['User-Agent'] = d.chromeUA || h['User-Agent'];
       }
-      // Client Hints — faqat Google/login uchun majburiy brend
+      // Electron Sec-CH-UA yubormaydi, haqiqiy Chromium yuboradi. Chrome UA + hintsiz so'rov = "embedded browser" belgisi (Google login rad etadi).
       let host = '';
       try { host = new URL(r.url).hostname; } catch {}
       const isGoogle = /(^|\.)google\.com$|(^|\.)googleapis\.com$|(^|\.)gstatic\.com$|(^|\.)youtube\.com$|(^|\.)googleusercontent\.com$/.test(host);
-      if (typeof d.secChUa === 'function' && isGoogle) {
-        const ch = d.secChUa();
-        const full = (typeof d.secChUaFull === 'function' ? d.secChUaFull() : ch);
-        h['sec-ch-ua'] = ch;
+      if (r.url.startsWith('https:') && typeof d.secChUa === 'function') {
+        h['sec-ch-ua'] = d.secChUa();
         h['sec-ch-ua-mobile'] = '?0';
         h['sec-ch-ua-platform'] = '"Linux"';
-        h['sec-ch-ua-full-version-list'] = full;
-        h['sec-ch-ua-platform-version'] = '"6.8.0"';
-        h['sec-ch-ua-arch'] = '"x86"';
-        h['sec-ch-ua-bitness'] = '"64"';
-        h['sec-ch-ua-model'] = '""';
-        h['sec-ch-ua-wow64'] = '?0';
+        if (isGoogle) {
+          h['sec-ch-ua-full-version-list'] = typeof d.secChUaFull === 'function' ? d.secChUaFull() : d.secChUa();
+          h['sec-ch-ua-platform-version'] = '"' + require('os').release().split('-')[0] + '"';
+          h['sec-ch-ua-arch'] = '"x86"';
+          h['sec-ch-ua-bitness'] = '"64"';
+          h['sec-ch-ua-model'] = '""';
+          h['sec-ch-ua-wow64'] = '?0';
+        }
       }
-      if (!h['Accept-Language']) h['Accept-Language'] = 'en-US,en;q=0.9';
+      // Chromium: "en-US,en;q=0.9" (Electron faqat "en-US" yuboradi)
+      const al = h['Accept-Language'];
+      if (!al) h['Accept-Language'] = 'en-US,en;q=0.9';
+      else if (!/[,;]/.test(al)) h['Accept-Language'] = al + ',' + al.split('-')[0] + ';q=0.9';
       // Sec-GPC Google login ni bezovta qilishi mumkin — auth domenlarida yubormaymiz
       if (d.settings().shields && !isGoogle) h['Sec-GPC'] = '1';
     } catch {}

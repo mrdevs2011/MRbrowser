@@ -397,8 +397,53 @@ body.light .mi:hover,body.light .sgi:hover,body.light .sgi.sel{background:rgba(0
   #dlbtn,#shield{display:none!important}
   .tab{min-width:32px}
 }
+
+/* ── Auth gate (root) ── */
+#authgate{display:none;position:fixed;inset:0;z-index:99999;background:#000;color:#fff;align-items:center;justify-content:center;flex-direction:column;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#authgate.on{display:flex}
+#authgate .box{width:min(380px,92vw);padding:28px 24px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:#0a0a0a}
+#authgate h1{margin:0 0 6px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+#authgate .sub{margin:0 0 20px;color:#888;font-size:13px;line-height:1.45}
+#authgate label{display:block;font-size:12px;color:#888;margin-bottom:12px}
+#authgate input{display:block;width:100%;height:40px;margin-top:6px;padding:0 12px;box-sizing:border-box;background:#000;border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:10px;font:inherit}
+#authgate input:focus{outline:none;border-color:#9fd8ff}
+#authgate .acts{display:flex;flex-direction:column;gap:10px;margin-top:12px;width:100%}
+#authgate button.btn,#authgate .btn{
+  display:block;width:100%;height:42px;padding:0 16px;box-sizing:border-box;
+  border:0;border-radius:10px;font:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;text-align:center;line-height:42px;
+  -webkit-app-region:no-drag;
+}
+#authgate button.btn.p,#authgate .btn.p{background:#9fd8ff;color:#000}
+#authgate button.btn.g,#authgate .btn.g{background:transparent;color:#ccc;border:1px solid rgba(255,255,255,.14);line-height:40px}
+#authgate button.btn:disabled,#authgate .btn:disabled{opacity:.45;cursor:default}
+#authgate button.btn:hover,#authgate .btn:hover{filter:brightness(1.06)}
+#authgate .err{min-height:18px;margin:0 0 8px;font-size:12px;color:#e81123}
+#authgate .logo{font-size:28px;font-weight:700;margin-bottom:18px;letter-spacing:-.03em}
+#authgate .logo span{background:linear-gradient(135deg,#9fd8ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent}
+body.light #authgate{background:#f1f3f4;color:#202124}
+body.light #authgate .box{background:#fff;border-color:rgba(0,0,0,.1)}
+body.light #authgate input{background:#fff;border-color:rgba(0,0,0,.12);color:#202124}
+body.light #authgate .btn.p{background:#1a73e8;color:#fff}
+body.light #authgate .btn.g{color:#202124;border-color:rgba(0,0,0,.14)}
+body.light #authgate .sub,body.light #authgate label{color:#5f6368}
 </style></head>
 <body>
+<div id="authgate">
+  <div class="logo"><span>MR</span>Browser</div>
+  <div class="box">
+    <h1 id="ag-title">Bulut hisobi</h1>
+    <p class="sub" id="ag-sub">Davom etish uchun ro‘yxatdan o‘ting yoki kiring</p>
+    <div class="err" id="ag-err"></div>
+    <label id="ag-l-email">Email<input type="email" id="ag-email" spellcheck="false" autocomplete="username"></label>
+    <label id="ag-l-pass">Parol<input type="password" id="ag-pass" autocomplete="current-password"></label>
+    <div class="acts">
+      <button type="button" class="btn p" id="ag-login" style="width:100%">Kirish</button>
+      <button type="button" class="btn g" id="ag-register" style="width:100%">Ro‘yxatdan o‘tish</button>
+    </div>
+  </div>
+</div>
+
 <div id="chrome">
   <div id="tabstrip">
     <div id="tabs"></div>
@@ -729,6 +774,7 @@ function menuHTML() {
     ${it('print', 'printer', T('print'), 'Ctrl+P')}${it('devtools', 'code', T('devtools'), 'F12')}
     <div class="sepl"></div>
     ${it('bar-toggle', 'bookmark', S.bar ? T('bookmarks_hide') : T('bookmarks_show'), 'Ctrl+Shift+B')}
+    ${it('import-google', 'user', 'Google sessiyani otkazish')}
     ${it('settings', 'sliders', T('settings'))}
     <div class="card" style="padding:8px 12px 4px;font-size:11px">MR Browser ${esc(S.version)} · ${esc(S.engine)}</div></div>`;
 }
@@ -978,7 +1024,7 @@ pop.addEventListener('click', (e) => {
   const t = e.target;
   let el;
   if ((el = t.closest('[data-sg]'))) return choose(+el.dataset.sg);
-  if ((el = t.closest('[data-cmd]'))) { api.send('cmd', el.dataset.cmd, el.dataset.arg || undefined); if (!el.dataset.keep) closeOv(el.dataset.cmd !== 'find'); return; }
+  if ((el = t.closest('[data-cmd]'))) { if (el.dataset.cmd === 'import-google') { closeOv(); api.invoke('import-google-cookies').then(function(r){ var msg; if (r && r.ok) msg = 'OK (' + (r.method || '?') + '): ' + r.imported + ' cookie'; else msg = 'Fail: ' + ((r && r.imported) || 0) + ' keyring=' + ((r && r.keyring) || '?'); if (r && r.hint) msg = msg + ' | ' + r.hint; try { alert(msg); } catch (e1) {} }).catch(function(e){ try { alert('Xato: ' + e); } catch (e2) {} }); return; } api.send('cmd', el.dataset.cmd, el.dataset.arg || undefined); if (!el.dataset.keep) closeOv(el.dataset.cmd !== 'find'); return; }
   if ((el = t.closest('[data-act]'))) { if (el.dataset.act === 'shield-toggle') api.send('shield-toggle'); closeOv(); return; }
   if ((el = t.closest('[data-dl]'))) { const [id, a] = el.dataset.dl.split(':'); api.send('dl-action', +id, a); return; }
   if ((el = t.closest('[data-perm]'))) { const r = $('#permrem'); api.send('perm-answer', +el.dataset.id, el.dataset.perm === '1', r ? r.checked : false); closeOv(true, true); return; }
@@ -1124,7 +1170,62 @@ document.addEventListener('keydown', (e) => {
 addEventListener('blur', () => { if (overlay && overlay !== 'sugg' && overlay !== 'perm') setTimeout(() => { if (!document.hasFocus() && overlay) closeOv(false); }, 150); });
 
 /* — main'dan keluvchi hodisalar — */
-api.on('state', (s) => { S = s; try { const L = (s && s.lang) || 'uz'; document.documentElement.lang = L; document.documentElement.setAttribute('lang', L); } catch {} render(); });
+
+/* ── Root auth gate ── */
+const ag = document.getElementById('authgate');
+const agErr = document.getElementById('ag-err');
+function setGate(on) {
+  if (!ag) return;
+  ag.classList.toggle('on', !!on);
+  document.body.style.overflow = on ? 'hidden' : '';
+}
+function agMsg(code, raw) {
+  if (code === 'email_not_confirmed') return T('cloud_err_email');
+  if (code === 'invalid_credentials') return T('cloud_err_creds');
+  if (code === 'network') return T('cloud_err_network');
+  if (code === 'empty') return T('cloud_err_empty');
+  return raw || T('cloud_fail');
+}
+function refreshGateLabels() {
+  const title = document.getElementById('ag-title');
+  const sub = document.getElementById('ag-sub');
+  const le = document.getElementById('ag-l-email');
+  const lp = document.getElementById('ag-l-pass');
+  const bl = document.getElementById('ag-login');
+  const br = document.getElementById('ag-register');
+  if (title) title.textContent = T('login_page_title');
+  if (sub) sub.textContent = T('login_page_sub');
+  if (le) { const inp = le.querySelector('input'); le.childNodes[0].textContent = T('cloud_email'); if (inp) le.appendChild(inp); }
+  if (lp) { const inp = lp.querySelector('input'); lp.childNodes[0].textContent = T('cloud_password'); if (inp) lp.appendChild(inp); }
+  if (bl) bl.textContent = T('cloud_login');
+  if (br) br.textContent = T('cloud_register');
+}
+async function runAuth(isReg) {
+  const email = ((document.getElementById('ag-email') || {}).value || '').trim();
+  const pass = ((document.getElementById('ag-pass') || {}).value || '');
+  agErr.textContent = '';
+  if (!email || !pass) { agErr.textContent = agMsg('empty'); return; }
+  const btn = isReg ? document.getElementById('ag-register') : document.getElementById('ag-login');
+  btn.disabled = true;
+  let r = null;
+  try { r = await api.invoke(isReg ? 'sync-register' : 'sync-login', email, pass); }
+  catch (e) { agErr.textContent = agMsg('network'); btn.disabled = false; return; }
+  btn.disabled = false;
+  if (!r || !r.ok) {
+    agErr.textContent = agMsg(r && r.error, r && (r.raw || r.error));
+    return;
+  }
+  if (r.needsConfirm) {
+    agErr.textContent = T('cloud_needs_confirm');
+    return;
+  }
+  // state keladi — gate yopiladi
+}
+document.getElementById('ag-login').onclick = () => runAuth(false);
+document.getElementById('ag-register').onclick = () => runAuth(true);
+document.getElementById('ag-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') runAuth(false); });
+
+api.on('state', (s) => { S = s; try { const L = (s && s.lang) || 'uz'; document.documentElement.lang = L; document.documentElement.setAttribute('lang', L); } catch {} refreshGateLabels(); setGate(!!(s && s.authRequired)); if (!(s && s.authRequired)) render(); else render(); });
 api.on('focus-address', () => { addr.focus(); addr.select(); });
 api.on('focus-address-soft', () => { if (document.activeElement === addr && edited) return; addr.focus(); });
 api.on('page-focused', () => { if (document.activeElement === addr) addr.blur(); });

@@ -327,10 +327,12 @@ class App(Gtk.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.spacer = Gtk.Box()
         box.pack_start(self.spacer, False, False, 0)
+        self.content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.nb = Gtk.Notebook()
         self.nb.set_show_tabs(False)
         self.nb.set_show_border(False)
-        box.pack_start(self.nb, True, True, 0)
+        self.content_box.pack_start(self.nb, True, True, 0)
+        box.pack_start(self.content_box, True, True, 0)
         self.ovl.add(box)
 
         ucm = WebKit2.UserContentManager()
@@ -537,7 +539,10 @@ class App(Gtk.Window):
         if self.active is not None and self.active is not t:
             self.find_close()
         self.active = t
-        self.nb.set_current_page(self.tabs.index(t))
+        if self.tile:
+            self.apply_tiling()
+        else:
+            self.nb.set_current_page(self.tabs.index(t))
         if t.home_blank or not (t.view.get_uri() or '').strip() or (t.view.get_uri() or '').startswith('about:'):
             self.ui.grab_focus()
             self.send_ui('focus-address')
@@ -560,7 +565,8 @@ class App(Gtk.Window):
             del self.closed[:-20]
         idx = self.tabs.index(t)
         self.tabs.remove(t)
-        self.nb.remove_page(idx)
+        if t.view.get_parent():
+            t.view.get_parent().remove(t.view)
         t.view.destroy()
         if not self.tabs:
             self.on_delete()
@@ -569,6 +575,8 @@ class App(Gtk.Window):
         if self.active is t:
             self.active = None
             self.activate(self.tabs[min(idx, len(self.tabs) - 1)])
+        elif self.tile:
+            self.apply_tiling()
         self.schedule_push()
 
     def move_tab(self, tid=None, to=0, *a):
@@ -664,7 +672,44 @@ class App(Gtk.Window):
 
     def tile_toggle(self):
         self.tile = not self.tile
+        self.apply_tiling()
         self.schedule_push()
+
+    def apply_tiling(self):
+        # Clean up existing extra notebook
+        if hasattr(self, 'extra_nb') and self.extra_nb:
+            for child in list(self.extra_nb.get_children()):
+                self.extra_nb.remove(child)
+            if self.extra_nb in self.content_box.get_children():
+                self.content_box.remove(self.extra_nb)
+            self.extra_nb = None
+
+        if self.tile and len(self.tabs) > 1:
+            cur_idx = self.tabs.index(self.active) if self.active in self.tabs else 0
+            other_idx = (cur_idx + 1) % len(self.tabs)
+            other_tab = self.tabs[other_idx]
+            
+            # Detach other view from primary notebook temporarily if needed
+            if other_tab.view.get_parent() == self.nb:
+                self.nb.remove(other_tab.view)
+                
+            self.extra_nb = Gtk.Notebook()
+            self.extra_nb.set_show_tabs(False)
+            self.extra_nb.set_show_border(False)
+            self.extra_nb.append_page(other_tab.view, None)
+            other_tab.view.show()
+            self.content_box.pack_start(self.extra_nb, True, True, 0)
+            self.content_box.show_all()
+        else:
+            # Reattach all views back to main notebook in order
+            for i, tab in enumerate(self.tabs):
+                if tab.view.get_parent() != self.nb:
+                    if tab.view.get_parent():
+                        tab.view.get_parent().remove(tab.view)
+                    self.nb.insert_page(tab.view, None, i)
+                    tab.view.show()
+            if self.active in self.tabs:
+                self.nb.set_current_page(self.tabs.index(self.active))
 
     def zoom_step(self, d):
         t = self.active

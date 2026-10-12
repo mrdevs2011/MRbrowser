@@ -3,22 +3,68 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MRBrowser</title>
+<title>MRBrowser - o'rnatish</title>
 <style>
-body{margin:0;min-height:100vh;font:16px system-ui,sans-serif;background:#0b0d10;color:#e8eef7;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{max-width:520px;width:100%;background:#14181f;border:1px solid #243041;border-radius:16px;padding:28px 24px}
+body{margin:0;min-height:100vh;font:16px system-ui,sans-serif;background:#0b0d10;color:#e8eef7;display:flex;align-items:flex-start;justify-content:center;padding:24px}
+.card{max-width:640px;width:100%;background:#14181f;border:1px solid #243041;border-radius:16px;padding:28px 24px}
 h1{margin:0 0 8px}
-.m{color:#8b9bb0}
-code{display:block;background:#0a0c0f;border:1px solid #243041;border-radius:10px;padding:12px;margin:10px 0;word-break:break-all;font:13px monospace;color:#c6e2ff}
+h2{margin:26px 0 6px;font-size:18px}
+.m{color:#8b9bb0;margin:4px 0}
+.box{position:relative;margin:10px 0}
+pre{margin:0;background:#0a0c0f;border:1px solid #243041;border-radius:10px;padding:12px 70px 12px 12px;overflow-x:auto;font:13px/1.6 monospace;color:#c6e2ff;white-space:pre}
+button{position:absolute;top:8px;right:8px;background:#1d2633;color:#e8eef7;border:1px solid #2f3e54;border-radius:8px;padding:4px 10px;font:12px system-ui,sans-serif;cursor:pointer}
+button:hover{background:#26334a}
+ol{padding-left:20px;margin:6px 0}
+li{margin:4px 0}
 a{color:#6db3f2}
 </style>
 </head>
 <body>
 <div class="card">
 <h1>MRBrowser</h1>
-<p class="m">Config API</p>
-<code><a href="/api/config">/api/config</a></code>
+<p class="m">Yonma-yon tablar, Brave uslubidagi shields, ko'p akkauntli profillar.</p>
+
+<h2>1. Tez o'rnatish (Linux / macOS)</h2>
+<p class="m">Terminalga nusxalab tashlang:</p>
+<div class="box"><pre id="c1">curl -fsSL https://raw.githubusercontent.com/mrdevs2011/MRbrowser/main/install.sh | bash</pre><button data-c="c1">Nusxa</button></div>
+<p class="m">Tugagach ishga tushiring:</p>
+<div class="box"><pre id="c2">mrbrowser</pre><button data-c="c2">Nusxa</button></div>
+
+<h2>2. Qo'lda (manba koddan)</h2>
+<p class="m">Kerak: git, Node.js + npm, Electron (Arch: <b>sudo pacman -S electron</b>).</p>
+<div class="box"><pre id="c3">git clone https://github.com/mrdevs2011/MRbrowser.git
+cd MRbrowser
+npm install
+npm start</pre><button data-c="c3">Nusxa</button></div>
+
+<h2>3. AppImage yig'ish (Linux)</h2>
+<div class="box"><pre id="c4">cd MRbrowser
+npm run dist
+./dist/MRBrowser.AppImage</pre><button data-c="c4">Nusxa</button></div>
+
+<h2>4. Kirish (login)</h2>
+<ol>
+<li>MRBrowser'ni oching.</li>
+<li>Kirish oynasida <b>Kirish</b> tugmasini bosing (akkaunt yo'q bo'lsa - ro'yxatdan o'ting).</li>
+<li>Akkauntingiz bilan kiring - sozlamalar bulutga avtomatik sinxronlanadi.</li>
+</ol>
+
+<h2>Yangilash</h2>
+<p class="m">1-bo'limdagi buyruqni qayta ishga tushiring.</p>
+
+<h2>Havolalar</h2>
+<p class="m">Config API: <a href="/api/config">/api/config</a></p>
 <p class="m">GitHub: <a href="https://github.com/mrdevs2011/MRbrowser">mrdevs2011/MRbrowser</a></p>
 </div>
+<script>
+document.querySelectorAll('button[data-c]').forEach(function(b){
+  b.addEventListener('click',function(){
+    var t=document.getElementById(b.dataset.c).textContent;
+    var done=function(){b.textContent='Tayyor';setTimeout(function(){b.textContent='Nusxa'},1500)};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){});}
+    else{var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');done()}catch(e){}a.remove()}
+  });
+});
+</script>
 </body>
 </html>

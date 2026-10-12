@@ -1,16 +1,22 @@
-node_modules/
+# Build artifacts
+target/
 dist/
 *.AppImage
-.env
-.env.*
-!.env.example
+
+# Node / JS
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs & temp
 *.log
 .DS_Store
 .cache/
 /tmp/
+
+# User data
 mrbrowser-data.json
 mrbrowser-cloud.json
-target/
-__pycache__/
-*.pyc
-

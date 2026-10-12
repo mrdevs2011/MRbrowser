@@ -10,3 +10,5 @@ dist/
 /tmp/
 mrbrowser-data.json
 mrbrowser-cloud.json
+__pycache__/
+*.pyc

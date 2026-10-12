@@ -150,7 +150,7 @@ class Tab:
             except Exception:
                 pass
         try:
-            s.set_hardware_acceleration_policy(WebKit2.HardwareAccelerationPolicy.ON_DEMAND)
+            s.set_hardware_acceleration_policy(WebKit2.HardwareAccelerationPolicy.ALWAYS)
         except Exception:
             pass
         v = self.view
@@ -269,6 +269,7 @@ class App(Gtk.Window):
         self.overlay_open = False
         self.find_open = False
         self.html_fs = False
+        self.tile = False
         self.perms = {}
         self.perm_seq = 0
         self.dls = []
@@ -498,7 +499,7 @@ class App(Gtk.Window):
                       for pid, p in self.perms.items() if p['tab'] is t],
             'maximized': self.is_maximized(), 'fullscreen': self.html_fs,
             'engine': (ENGINES.get(s['engine']) or ENGINES['google'])['name'], 'version': VERSION,
-            'internal': False, 'blank': blank, 'tile': False, 'lang': lang,
+            'internal': False, 'blank': blank, 'tile': bool(self.tile), 'lang': lang,
             'strings': self.i18n.get(lang) or self.i18n.get('uz') or {},
             'theme': self.theme(), 'themePref': s.get('theme', 'dark'),
             'authRequired': False, 'cloudEmail': None,
@@ -661,6 +662,10 @@ class App(Gtk.Window):
         self.relayout()
         self.schedule_push()
 
+    def tile_toggle(self):
+        self.tile = not self.tile
+        self.schedule_push()
+
     def zoom_step(self, d):
         t = self.active
         if not t:
@@ -731,6 +736,8 @@ class App(Gtk.Window):
             t.view.get_inspector().show()
         elif name in ('downloads',):
             self.send_ui('open-overlay', 'dl')
+        elif name == 'tile-toggle':
+            self.tile_toggle()
         else:
             print('[cmd] hozircha qo\'llab-quvvatlanmaydi:', name, file=sys.stderr)
 

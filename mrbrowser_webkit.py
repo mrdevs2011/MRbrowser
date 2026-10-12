@@ -3,12 +3,6 @@
 """MR Browser - classic UI on a lightweight native WebKitGTK engine (no Electron / Chromium)."""
 import os, sys, json, time, base64, re, copy, signal, threading, traceback
 import urllib.request, urllib.parse
-# Configure optimal hardware acceleration & smooth rendering before WebKit loads
-os.environ.setdefault('WEBKIT_DISABLE_COMPOSITING_MODE', '0')
-os.environ.setdefault('WEBKIT_FORCE_COMPOSITING_MODE', '1')
-os.environ.setdefault('GDK_RENDERING', 'gl')
-os.environ.setdefault('WEBKIT_GST_HOLEPUNCH', '1')
-
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
@@ -749,12 +743,18 @@ class App(Gtk.Window):
             self.paned.pack1(self.nb, resize=True, shrink=False)
             self.paned.pack2(self.extra_nb, resize=True, shrink=False)
 
-            # Set split position based on saved ratio or default half
+            # Ensure current active tab is visible in self.nb
+            if self.active in self.tabs:
+                p_num = self.nb.page_num(self.active.view)
+                if p_num >= 0:
+                    self.nb.set_current_page(p_num)
+
+            # Set split position
             alloc = self.get_allocation()
             w = alloc.width if alloc.width > 200 else 1360
             pos = int(w * getattr(self, 'tile_ratio', 0.5))
             self.paned.set_position(pos)
-            self.paned.connect('notify::position', self._on_paned_pos_changed)
+            self.paned.connect('button-release-event', self._on_paned_release)
 
             self.content_box.pack_start(self.paned, True, True, 0)
             self.content_box.show_all()
@@ -771,11 +771,12 @@ class App(Gtk.Window):
             if self.active in self.tabs:
                 self.nb.set_current_page(self.tabs.index(self.active))
 
-    def _on_paned_pos_changed(self, paned, gparam):
+    def _on_paned_release(self, paned, event):
         alloc = paned.get_allocation()
         if alloc.width > 100:
             pos = paned.get_position()
             self.tile_ratio = max(0.1, min(0.9, pos / float(alloc.width)))
+        return False
 
     def zoom_step(self, d):
         t = self.active
